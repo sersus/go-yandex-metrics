@@ -44,13 +44,18 @@ func main() {
 	http.HandleFunc("/update/", func(w http.ResponseWriter, r *http.Request) {
 		parts := strings.Split(r.URL.Path, "/")
 		if len(parts) != 5 {
-			http.Error(w, "Invalid request", http.StatusBadRequest)
+			http.Error(w, "Invalid request", http.StatusNotFound)
 			return
 		}
 
 		metricType := parts[2]
 		metricName := parts[3]
 		metricValueStr := parts[4]
+
+		if metricName == "" {
+			http.Error(w, "Metric name can't be empty", http.StatusNotFound)
+			return
+		}
 
 		switch metricType {
 		case "gauge":
@@ -77,4 +82,3 @@ func main() {
 
 	http.ListenAndServe(":8080", nil)
 }
-
