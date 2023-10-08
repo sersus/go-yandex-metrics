@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
-	"sync"
 )
 
 // MetricRepository представляет интерфейс для хранения метрик.
@@ -16,7 +15,6 @@ type MetricRepository interface {
 
 // MemStorage представляет хранилище метрик.
 type MemStorage struct {
-	mu      sync.Mutex
 	metrics map[string]interface{}
 }
 
@@ -29,15 +27,11 @@ func NewMemStorage() *MemStorage {
 
 // UpdateGauge обновляет метрику типа gauge.
 func (s *MemStorage) UpdateGauge(name string, value float64) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
 	s.metrics[name] = value
 }
 
 // UpdateCounter обновляет метрику типа counter.
 func (s *MemStorage) UpdateCounter(name string, value int64) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
 	if existingValue, ok := s.metrics[name]; ok {
 		if oldValue, isInt := existingValue.(int64); isInt {
 			s.metrics[name] = oldValue + value
@@ -68,6 +62,7 @@ func (h *MetricHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	metricType := parts[2]
 	metricName := parts[3]
 	metricValueStr := parts[4]
+	fmt.Println("Metric " + metricType + " " + metricName + " " + metricValueStr)
 
 	if metricName == "" {
 		http.Error(w, "Metric name can't be empty", http.StatusNotFound)

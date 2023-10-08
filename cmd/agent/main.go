@@ -16,8 +16,8 @@ type MemStorage struct {
 
 const (
 	serverURL      = "http://localhost:8080"
-	pollInterval   = 2 * time.Second
-	reportInterval = 5 * time.Second // 5*2 = 10
+	pollInterval   = 2
+	reportInterval = 5 // 5*2 = 10
 )
 
 func main() {
