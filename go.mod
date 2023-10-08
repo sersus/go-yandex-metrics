@@ -1,3 +1,3 @@
-module metrics
+module github.com/sersus/go-yandex-metrics
 
-go 1.20
+go 1.21.0
