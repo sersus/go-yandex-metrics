@@ -70,16 +70,18 @@ func collectMetrics(m *runtime.MemStats, gaugeMetrics []string, storage *MemStor
 
 func sendGaugeToServer(metricName string, metricValue float64) {
 	url := fmt.Sprintf("%s/update/gauge/%s/%f", serverURL, metricName, metricValue)
-	_, err := http.Post(url, "text/plain", http.NoBody)
+	resp, err := http.Post(url, "text/plain", http.NoBody)
 	if err != nil {
 		fmt.Printf("Failed to send metric %s to server: %v\n", metricName, err)
 	}
+	resp.Body.Close()
 }
 
 func sendCounterToServer(metricName string, metricValue int64) {
 	url := fmt.Sprintf("%s/update/counter/%s/%d", serverURL, metricName, metricValue)
-	_, err := http.Post(url, "text/plain", http.NoBody)
+	resp, err := http.Post(url, "text/plain", http.NoBody)
 	if err != nil {
 		fmt.Printf("Failed to send metric %s to server: %v\n", metricName, err)
 	}
+	resp.Body.Close()
 }
