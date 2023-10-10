@@ -1,87 +1,76 @@
 package main
 
 import (
+	"context"
 	"fmt"
-	"math/rand"
-	"net/http"
-	"reflect"
 	"runtime"
 	"time"
-)
 
-type MemStorage struct {
-	counters map[string]int64
-	gauges   map[string]float64
-}
-
-const (
-	serverURL      = "http://localhost:8080"
-	pollInterval   = 2
-	reportInterval = 5 // 5*2 = 10
+	"github.com/go-resty/resty/v2"
+	"github.com/sersus/go-yandex-metrics/internal/metric_handler"
+	"github.com/sersus/go-yandex-metrics/internal/storage"
+	"golang.org/x/sync/errgroup"
 )
 
 func main() {
-	gaugeMetrics := []string{"Alloc", "BuckHashSys", "Frees", "GCCPUFraction", "GCSys", "HeapAlloc",
-		"HeapIdle", "HeapInuse", "HeapObjects", "HeapReleased", "HeapSys", "LastGC", "Lookups",
-		"MCacheInuse", "MCacheSys", "MSpanInuse", "MSpanSys", "Mallocs", "NextGC", "NumForcedGC",
-		"NumGC", "OtherSys", "PauseTotalNs", "StackInuse", "StackSys", "Sys", "TotalAlloc"}
-	storage := MemStorage{counters: make(map[string]int64), gauges: make(map[string]float64)}
-	var m runtime.MemStats
+	metricsCollector := metric_handler.New(&storage.MetricsStorage)
 
-	i := 0
+	ctx := context.Background()
+
+	errs, _ := errgroup.WithContext(ctx)
+	errs.Go(func() error {
+		if err := performCollect(metricsCollector); err != nil {
+			panic(err)
+		}
+		return nil
+	})
+
+	reportTicker := time.NewTicker(time.Second * 10)
+	client := resty.New()
+	defer reportTicker.Stop()
+	errs.Go(func() error {
+		if err := sendMetricsToServer(client); err != nil {
+			panic(err)
+		}
+		return nil
+	})
+
+	_ = errs.Wait()
+}
+
+type Imetric_handler interface {
+	Collect(metrics *runtime.MemStats)
+}
+
+func performCollect(metricsCollector Imetric_handler) error {
 	for {
-		collectMetrics(&m, gaugeMetrics, &storage)
-		i++
-		time.Sleep(pollInterval * time.Second)
-		if i%int(reportInterval) == 0 {
-			sendMetricsToServer(&storage)
-			i = 0
-		}
+		metrics := runtime.MemStats{}
+		runtime.ReadMemStats(&metrics)
+		metricsCollector.Collect(&metrics)
+		time.Sleep(time.Second * 2)
 	}
 }
 
-func sendMetricsToServer(metrics *MemStorage) {
-	for name, value := range metrics.gauges {
-		sendGaugeToServer(name, value)
-	}
-	for name, value := range metrics.counters {
-		sendCounterToServer(name, value)
-	}
-}
-
-func collectMetrics(m *runtime.MemStats, gaugeMetrics []string, storage *MemStorage) {
-	runtime.ReadMemStats(m)
-	for _, metricName := range gaugeMetrics {
-		value := reflect.ValueOf(*m).FieldByName(metricName)
-		if value.IsValid() {
-			// fmt.Println("Metric " + metricName + " equals " + value.String())
-			if value.CanFloat() {
-				storage.gauges[metricName] = value.Float()
-			} else if value.CanUint() {
-				storage.gauges[metricName] = float64(value.Uint())
+func sendMetricsToServer(client *resty.Client) error {
+	for {
+		for n, i := range storage.MetricsStorage.Metrics {
+			switch i.Value.(type) {
+			case uint, uint64, int, int64:
+				_, err := client.R().
+					SetHeader("Content-Type", "text/plain").
+					Post(fmt.Sprintf("http://localhost:8080/update/%s/%s/%d", i.MetricType, n, i.Value))
+				if err != nil {
+					return err
+				}
+			case float64:
+				_, err := client.R().
+					SetHeader("Content-Type", "text/plain").
+					Post(fmt.Sprintf("http://localhost:8080/update/%s/%s/%f", i.MetricType, n, i.Value))
+				if err != nil {
+					return err
+				}
 			}
-		} else {
-			fmt.Printf("Metric named %s was not found in MemStats", metricName)
 		}
+		time.Sleep(time.Second * 10)
 	}
-	storage.counters["PollCount"]++
-	storage.gauges["RandomValue"] = rand.Float64()
-}
-
-func sendGaugeToServer(metricName string, metricValue float64) {
-	url := fmt.Sprintf("%s/update/gauge/%s/%f", serverURL, metricName, metricValue)
-	resp, err := http.Post(url, "text/plain", http.NoBody)
-	if err != nil {
-		fmt.Printf("Failed to send metric %s to server: %v\n", metricName, err)
-	}
-	resp.Body.Close()
-}
-
-func sendCounterToServer(metricName string, metricValue int64) {
-	url := fmt.Sprintf("%s/update/counter/%s/%d", serverURL, metricName, metricValue)
-	resp, err := http.Post(url, "text/plain", http.NoBody)
-	if err != nil {
-		fmt.Printf("Failed to send metric %s to server: %v\n", metricName, err)
-	}
-	resp.Body.Close()
 }
