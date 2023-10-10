@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"runtime"
 	"time"
@@ -12,7 +13,20 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
+var options struct {
+	address        string
+	reportInterval int
+	pollInterval   int
+}
+
+func init() {
+	flag.StringVar(&options.address, "a", "localhost:8080", "Server listening address")
+	flag.IntVar(&options.reportInterval, "r", 10, "report interval")
+	flag.IntVar(&options.pollInterval, "p", 2, "poll interval")
+}
+
 func main() {
+	flag.Parse()
 	metricsCollector := harvester.New(&storage.MetricsStorage)
 
 	ctx := context.Background()
@@ -42,12 +56,12 @@ type Iharvester interface {
 	Collect(metrics *runtime.MemStats)
 }
 
-func performCollect(metricsCollector Iharvester) error {
+func performCollect(h Iharvester) error {
 	for {
 		metrics := runtime.MemStats{}
 		runtime.ReadMemStats(&metrics)
-		metricsCollector.Collect(&metrics)
-		time.Sleep(time.Second * 2)
+		h.Collect(&metrics)
+		time.Sleep(time.Second * time.Duration(options.pollInterval))
 	}
 }
 
@@ -58,19 +72,19 @@ func sendMetricsToServer(client *resty.Client) error {
 			case uint, uint64, int, int64:
 				_, err := client.R().
 					SetHeader("Content-Type", "text/plain").
-					Post(fmt.Sprintf("http://localhost:8080/update/%s/%s/%d", i.MetricType, n, i.Value))
+					Post(fmt.Sprintf("http://%s/update/%s/%s/%d", options.address, i.MetricType, n, i.Value))
 				if err != nil {
 					return err
 				}
 			case float64:
 				_, err := client.R().
 					SetHeader("Content-Type", "text/plain").
-					Post(fmt.Sprintf("http://localhost:8080/update/%s/%s/%f", i.MetricType, n, i.Value))
+					Post(fmt.Sprintf("http://%s/update/%s/%s/%f", options.address, i.MetricType, n, i.Value))
 				if err != nil {
 					return err
 				}
 			}
 		}
-		time.Sleep(time.Second * 10)
+		time.Sleep(time.Second * time.Duration(options.reportInterval))
 	}
 }
