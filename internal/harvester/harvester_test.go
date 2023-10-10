@@ -1,4 +1,4 @@
-package metric_handler
+package harvester
 
 import (
 	"runtime"
@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func Test_metric_handler_Collect(t *testing.T) {
+func Test_harvester_Collect(t *testing.T) {
 	testCases := []struct {
 		name     string
 		storage  storage.MemStorage
@@ -29,8 +29,8 @@ func Test_metric_handler_Collect(t *testing.T) {
 	for _, tt := range testCases {
 		t.Run(tt.name, func(t *testing.T) {
 			metric := runtime.MemStats{Alloc: 1, Sys: 1, GCCPUFraction: 42.42}
-			metricsmetric_handler := New(&tt.storage)
-			metricsmetric_handler.Collect(&metric)
+			metricsharvester := New(&tt.storage)
+			metricsharvester.Collect(&metric)
 			assert.Equal(t, tt.expected.Metrics["Alloc"], tt.storage.Metrics["Alloc"])
 			assert.Equal(t, tt.expected.Metrics["Sys"], tt.storage.Metrics["Sys"])
 			assert.Equal(t, tt.expected.Metrics["GCCPUFraction"], tt.storage.Metrics["GCCPUFraction"])

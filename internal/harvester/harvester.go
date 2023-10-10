@@ -1,4 +1,4 @@
-package metric_handler
+package harvester
 
 import (
 	"math/rand"
@@ -7,7 +7,7 @@ import (
 	"github.com/sersus/go-yandex-metrics/internal/storage"
 )
 
-func (mh *metric_handler) Collect(metrics *runtime.MemStats) {
+func (mh *harvester) Collect(metrics *runtime.MemStats) {
 	mh.storage.Metrics["Alloc"] = storage.Metric{Value: metrics.Alloc, MetricType: storage.Gauge}
 	mh.storage.Metrics["BuckHashSys"] = storage.Metric{Value: metrics.BuckHashSys, MetricType: storage.Gauge}
 	mh.storage.Metrics["Frees"] = storage.Metric{Value: metrics.Frees, MetricType: storage.Gauge}
@@ -43,10 +43,10 @@ func (mh *metric_handler) Collect(metrics *runtime.MemStats) {
 	mh.storage.Metrics["PollCount"] = storage.Metric{Value: cnt, MetricType: storage.Counter}
 }
 
-func New(ms *storage.MemStorage) *metric_handler {
-	return &metric_handler{ms}
+func New(ms *storage.MemStorage) *harvester {
+	return &harvester{ms}
 }
 
-type metric_handler struct {
+type harvester struct {
 	storage *storage.MemStorage
 }

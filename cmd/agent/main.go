@@ -7,13 +7,13 @@ import (
 	"time"
 
 	"github.com/go-resty/resty/v2"
-	"github.com/sersus/go-yandex-metrics/internal/metric_handler"
+	"github.com/sersus/go-yandex-metrics/internal/harvester"
 	"github.com/sersus/go-yandex-metrics/internal/storage"
 	"golang.org/x/sync/errgroup"
 )
 
 func main() {
-	metricsCollector := metric_handler.New(&storage.MetricsStorage)
+	metricsCollector := harvester.New(&storage.MetricsStorage)
 
 	ctx := context.Background()
 
@@ -38,11 +38,11 @@ func main() {
 	_ = errs.Wait()
 }
 
-type Imetric_handler interface {
+type Iharvester interface {
 	Collect(metrics *runtime.MemStats)
 }
 
-func performCollect(metricsCollector Imetric_handler) error {
+func performCollect(metricsCollector Iharvester) error {
 	for {
 		metrics := runtime.MemStats{}
 		runtime.ReadMemStats(&metrics)
