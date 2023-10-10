@@ -4,6 +4,7 @@ import (
 	"flag"
 	"log"
 	"net/http"
+	"os"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/sersus/go-yandex-metrics/internal/handlers"
@@ -13,6 +14,11 @@ var address = flag.String("a", "localhost:8080", "Server listening address")
 
 func main() {
 	flag.Parse()
+	envAddr, exists := os.LookupEnv("ADDRESS")
+	if exists && envAddr != "" {
+		*address = envAddr
+	}
+
 	r := chi.NewRouter()
 	r.Post("/update/*", handlers.SendMetric)
 	r.Get("/value/*", handlers.GetMetric)

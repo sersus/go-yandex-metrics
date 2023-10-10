@@ -4,7 +4,9 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"os"
 	"runtime"
+	"strconv"
 	"time"
 
 	"github.com/go-resty/resty/v2"
@@ -19,6 +21,22 @@ var options struct {
 	pollInterval   int
 }
 
+func parceFlags() {
+	flag.Parse()
+	envAddr, exists := os.LookupEnv("ADDRESS")
+	if exists && envAddr != "" {
+		options.address = envAddr
+	}
+	envPollInt, exists := os.LookupEnv("POLL_INTERVAL")
+	if exists && envPollInt != "" {
+		options.pollInterval, _ = strconv.Atoi(envPollInt)
+	}
+	envRepInt, exists := os.LookupEnv("REPORT_INTERVAL")
+	if exists && envRepInt != "" {
+		options.reportInterval, _ = strconv.Atoi(envRepInt)
+	}
+}
+
 func init() {
 	flag.StringVar(&options.address, "a", "localhost:8080", "Server listening address")
 	flag.IntVar(&options.reportInterval, "r", 10, "report interval")
@@ -26,7 +44,7 @@ func init() {
 }
 
 func main() {
-	flag.Parse()
+	parceFlags()
 	metricsCollector := harvester.New(&storage.MetricsStorage)
 
 	ctx := context.Background()
