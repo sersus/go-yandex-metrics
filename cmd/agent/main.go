@@ -21,7 +21,7 @@ func init() {
 }
 
 func main() {
-	config.ParceFlags(options)
+	config.ParceFlags(&options)
 	metricsCollector := harvester.NewHarvester(&storage.MetricsStorage)
 
 	ctx := context.Background()
