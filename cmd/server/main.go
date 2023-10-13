@@ -18,11 +18,11 @@ func main() {
 	if exists && envAddr != "" {
 		*address = envAddr
 	}
-
+	metricsHandler := &handlers.MetricsHandler{}
 	r := chi.NewRouter()
-	r.Post("/update/*", handlers.SendMetric)
-	r.Get("/value/*", handlers.GetMetric)
-	r.Get("/", handlers.ShowMetrics)
+	r.Post("/update/*", metricsHandler.SendMetric)
+	r.Get("/value/*", metricsHandler.GetMetric)
+	r.Get("/", metricsHandler.ShowMetrics)
 
 	//log.Fatal(http.ListenAndServe(":8080", r))
 	log.Fatal(http.ListenAndServe(*address, r))

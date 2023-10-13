@@ -10,7 +10,9 @@ import (
 	"github.com/sersus/go-yandex-metrics/internal/storage"
 )
 
-func SendMetric(w http.ResponseWriter, r *http.Request) {
+type MetricsHandler struct{}
+
+func (h *MetricsHandler) SendMetric(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		return
@@ -58,7 +60,7 @@ func SendMetric(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-func GetMetric(w http.ResponseWriter, r *http.Request) {
+func (h *MetricsHandler) GetMetric(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		return
@@ -93,7 +95,7 @@ func GetMetric(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func ShowMetrics(w http.ResponseWriter, r *http.Request) {
+func (h *MetricsHandler) ShowMetrics(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path != "/" {
 		http.Error(w, "404 not found.", http.StatusNotFound)
 		return
@@ -114,4 +116,10 @@ func ShowMetrics(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("content-type", "Content-Type: text/html; charset=utf-8")
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte(page))
+}
+
+type MetricsHandlerInterface interface {
+	SendMetric(w http.ResponseWriter, r *http.Request)
+	GetMetric(w http.ResponseWriter, r *http.Request)
+	ShowMetrics(w http.ResponseWriter, r *http.Request)
 }

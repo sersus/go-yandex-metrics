@@ -29,7 +29,7 @@ func Test_harvester_Collect(t *testing.T) {
 	for _, tt := range testCases {
 		t.Run(tt.name, func(t *testing.T) {
 			metric := runtime.MemStats{Alloc: 1, Sys: 1, GCCPUFraction: 42.42}
-			metricsharvester := New(&tt.storage)
+			metricsharvester := NewHarvester(&tt.storage)
 			metricsharvester.Collect(&metric)
 			assert.Equal(t, tt.expected.Metrics["Alloc"], tt.storage.Metrics["Alloc"])
 			assert.Equal(t, tt.expected.Metrics["Sys"], tt.storage.Metrics["Sys"])

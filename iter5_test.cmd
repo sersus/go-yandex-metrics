@@ -1,0 +1,1 @@
+metricstest -test.v -test.run=^TestIteration5$ -agent-binary-path="cmd/agent/agent.exe" -binary-path="cmd/server/server.exe" -source-path="cmd/server" -server-port=8080
