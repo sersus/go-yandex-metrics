@@ -12,8 +12,7 @@ type Options struct {
 	PollInterval   int
 }
 
-func ParceFlags() *Options {
-	options := Options{}
+func ParceFlags(options Options) {
 	flag.Parse()
 	envAddr, exists := os.LookupEnv("ADDRESS")
 	if exists && envAddr != "" {
@@ -27,5 +26,4 @@ func ParceFlags() *Options {
 	if exists && envRepInt != "" {
 		options.ReportInterval, _ = strconv.Atoi(envRepInt)
 	}
-	return &options
 }

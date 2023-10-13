@@ -21,7 +21,7 @@ func init() {
 }
 
 func main() {
-	options = *config.ParceFlags()
+	config.ParceFlags(options)
 	metricsCollector := harvester.NewHarvester(&storage.MetricsStorage)
 
 	ctx := context.Background()
@@ -39,7 +39,7 @@ func main() {
 	client := resty.New()
 	defer reportTicker.Stop()
 	errs.Go(func() error {
-		if err := harvester.SendMetricsToServer(client, options); err != nil {
+		if err := harvester.SendMetricsToServer(client, &options); err != nil {
 			panic(err)
 		}
 		return nil

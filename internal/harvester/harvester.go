@@ -68,7 +68,7 @@ func PerformCollect(h Iharvester, pollInterval time.Duration) error {
 	}
 }
 
-func SendMetricsToServer(client *resty.Client, options config.Options) error {
+func SendMetricsToServer(client *resty.Client, options *config.Options) error {
 	for {
 		for n, i := range storage.MetricsStorage.Metrics {
 			switch i.Value.(type) {
