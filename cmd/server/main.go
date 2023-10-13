@@ -24,6 +24,5 @@ func main() {
 	r.Get("/value/*", metricsHandler.GetMetric)
 	r.Get("/", metricsHandler.ShowMetrics)
 
-	//log.Fatal(http.ListenAndServe(":8080", r))
 	log.Fatal(http.ListenAndServe(*address, r))
 }

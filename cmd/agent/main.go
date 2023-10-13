@@ -28,7 +28,6 @@ func main() {
 
 	errs, _ := errgroup.WithContext(ctx)
 	errs.Go(func() error {
-		//if err := performCollect(metricsCollector); err != nil {
 		if err := harvester.PerformCollect(metricsCollector, time.Duration(options.PollInterval)); err != nil {
 			panic(err)
 		}
