@@ -82,8 +82,6 @@ func (h *MetricsHandler) SendMetric(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}
-	metricType := url[2]
-	metricName := url[3]
 	err := findMetric(url[3], url[2], url[4])
 	if errors.Is(err, errNotImplemented) {
 		w.WriteHeader(http.StatusNotImplemented)
@@ -91,33 +89,10 @@ func (h *MetricsHandler) SendMetric(w http.ResponseWriter, r *http.Request) {
 	if errors.Is(err, errBadRequest) {
 		w.WriteHeader(http.StatusBadRequest)
 	}
-	switch metricType {
-	case storage.Counter:
-		value, err := strconv.Atoi(url[4])
-		if err != nil {
-			w.WriteHeader(http.StatusBadRequest)
-			return
-		}
-
-		if storage.MetricsStorage.Metrics[metricName].Value != nil {
-			value += storage.MetricsStorage.Metrics[metricName].Value.(int)
-		}
-		storage.MetricsStorage.Metrics[metricName] = storage.Metric{Value: value, MetricType: metricType}
-	case storage.Gauge:
-		_, err := strconv.ParseFloat(url[4], 64)
-		if err != nil {
-			w.WriteHeader(http.StatusBadRequest)
-			return
-		}
-		storage.MetricsStorage.Metrics[metricName] = storage.Metric{Value: url[4], MetricType: metricType}
-	default:
-		w.WriteHeader(http.StatusNotImplemented)
-		return
-	}
 
 	io.WriteString(w, "")
 	w.Header().Set("content-type", "text/plain; charset=utf-8")
-	w.Header().Set("content-length", strconv.Itoa(len(metricName)))
+	w.Header().Set("content-length", strconv.Itoa(len(url[3])))
 	w.WriteHeader(http.StatusOK)
 }
 
