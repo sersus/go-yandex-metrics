@@ -2,10 +2,12 @@ package harvester
 
 import (
 	"fmt"
+	"log"
 	"math/rand"
 	"runtime"
 	"time"
 
+	"github.com/avast/retry-go"
 	"github.com/go-resty/resty/v2"
 	"github.com/sersus/go-yandex-metrics/internal/config"
 	"github.com/sersus/go-yandex-metrics/internal/storage"
@@ -73,21 +75,40 @@ func SendMetricsToServer(client *resty.Client, options *config.Options) error {
 		for n, i := range storage.MetricsStorage.Metrics {
 			switch i.Value.(type) {
 			case uint, uint64, int, int64:
-				_, err := client.R().
-					SetHeader("Content-Type", "text/plain").
-					Post(fmt.Sprintf("http://%s/update/%s/%s/%d", options.Address, i.MetricType, n, i.Value))
-				if err != nil {
+				req := client.R().
+					SetHeader("Content-Type", "application/json").SetBody(fmt.Sprintf(`{"id:%q, "type":"counter", "value":%s}`, n, i.Value))
+				//Post(fmt.Sprintf("http://%s/update/%s/%s/%d", options.Address, i.MetricType, n, i.Value))
+				if err := sendRequest(req, options.Address); err != nil {
 					return err
 				}
 			case float64:
-				_, err := client.R().
-					SetHeader("Content-Type", "text/plain").
-					Post(fmt.Sprintf("http://%s/update/%s/%s/%f", options.Address, i.MetricType, n, i.Value))
-				if err != nil {
+				req := client.R().
+					SetHeader("Content-Type", "application/json").SetBody(fmt.Sprintf(`{"id:%q, "type":"counter", "value":%s}`, n, i.Value))
+				//Post(fmt.Sprintf("http://%s/update/%s/%s/%f", options.Address, i.MetricType, n, i.Value))
+				if err := sendRequest(req, options.Address); err != nil {
 					return err
 				}
 			}
 		}
 		time.Sleep(time.Second * time.Duration(options.ReportInterval))
 	}
+}
+
+func sendRequest(req *resty.Request, addr string) error {
+	err := retry.Do(
+		func() error {
+			var err error
+			_, err = req.Post(fmt.Sprintf("http://%s/update/", addr))
+			return err
+		},
+		retry.Attempts(10),
+		retry.OnRetry(func(n uint, err error) {
+			log.Printf("Retrying request after error: %v", err)
+		}),
+	)
+	if err != nil {
+		return err
+	}
+	// do something with the response
+	return nil
 }

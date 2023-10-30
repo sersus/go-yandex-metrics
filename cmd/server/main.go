@@ -30,6 +30,8 @@ func main() {
 	metricsHandler := &handlers.MetricsHandler{}
 	r := chi.NewRouter()
 	r.Use(log.RequestLogger)
+	r.Post("/update/", metricsHandler.SaveMetricFromJSON)
+	r.Post("/value/", metricsHandler.GetMetricFromJSON)
 	r.Post("/update/*", metricsHandler.SendMetric)
 	r.Get("/value/*", metricsHandler.GetMetric)
 	r.Get("/", metricsHandler.ShowMetrics)

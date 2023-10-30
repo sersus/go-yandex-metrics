@@ -3,6 +3,7 @@ module github.com/sersus/go-yandex-metrics
 go 1.20
 
 require (
+	github.com/avast/retry-go v3.0.0+incompatible
 	github.com/stretchr/testify v1.8.4
 	go.uber.org/zap v1.26.0
 )
