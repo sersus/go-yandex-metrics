@@ -87,7 +87,7 @@ func SendMetricsToServer(client *resty.Client, options *config.Options) error {
 					return fmt.Errorf("error while sending agent request for counter metric: %w", err)
 				}
 			case storage.Gauge:
-				jsonInput := fmt.Sprintf(`{"id":%q, "type":"gauge", "value": %f}`, n, i.Value)
+				jsonInput := fmt.Sprintf(`{"id":%q, "type":"gauge", "value": %11f}`, n, i.Value)
 				if err := sendRequest(req, jsonInput, options.Address); err != nil {
 					return fmt.Errorf("error while sending agent request for gauge metric: %w", err)
 				}
