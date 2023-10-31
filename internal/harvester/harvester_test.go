@@ -20,8 +20,8 @@ func Test_harvester_Collect(t *testing.T) {
 			storage: storage.MemStorage{Metrics: map[string]storage.Metric{}},
 			metric:  runtime.MemStats{Alloc: 1, Sys: 1, GCCPUFraction: 42.42},
 			expected: storage.MemStorage{Metrics: map[string]storage.Metric{
-				"Alloc":         {MetricType: storage.Gauge, Value: uint64(1)},
-				"Sys":           {MetricType: storage.Gauge, Value: uint64(1)},
+				"Alloc":         {MetricType: storage.Gauge, Value: float64(1)},
+				"Sys":           {MetricType: storage.Gauge, Value: float64(1)},
 				"GCCPUFraction": {MetricType: storage.Gauge, Value: 42.42},
 			}},
 		},
