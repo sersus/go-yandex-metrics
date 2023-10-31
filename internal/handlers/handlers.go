@@ -96,10 +96,13 @@ func (h *MetricsHandler) SendMetric(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 	}
 
-	io.WriteString(w, "")
+	w.WriteHeader(http.StatusOK)
+	if _, err = io.WriteString(w, ""); err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
 	w.Header().Set("content-type", "text/plain; charset=utf-8")
 	w.Header().Set("content-length", strconv.Itoa(len(url[3])))
-	w.WriteHeader(http.StatusOK)
 }
 
 func (h *MetricsHandler) GetMetric(w http.ResponseWriter, r *http.Request) {
@@ -138,6 +141,7 @@ func (h *MetricsHandler) GetMetric(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *MetricsHandler) ShowMetrics(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("content-type", "Content-Type: text/html; charset=utf-8")
 	if r.URL.Path != "/" {
 		http.Error(w, "404 not found.", http.StatusNotFound)
 		return
@@ -156,7 +160,7 @@ func (h *MetricsHandler) ShowMetrics(w http.ResponseWriter, r *http.Request) {
 </html>
 `
 	w.Header().Set("content-type", "Content-Type: text/html; charset=utf-8")
-	w.WriteHeader(http.StatusOK)
+	//w.WriteHeader(http.StatusOK)
 	w.Write([]byte(page))
 }
 
@@ -179,15 +183,8 @@ func (h *MetricsHandler) SaveMetricFromJSON(w http.ResponseWriter, r *http.Reque
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	metricValue := ""
-	switch metric.MType {
-	case "counter":
-		metricValue = strconv.Itoa(int(*metric.Delta))
-	case "gauge":
-		metricValue = fmt.Sprintf("%.11f", *metric.Value)
-	}
 
-	err := findMetric(metric.ID, metric.MType, metricValue)
+	err := collectFromJSON(metric)
 	if errors.Is(err, errBadRequest) {
 		log.Println("Bad request 3")
 		w.WriteHeader(http.StatusBadRequest)
@@ -198,55 +195,29 @@ func (h *MetricsHandler) SaveMetricFromJSON(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	log.Printf("ID: %T", metric.ID)
-	updated, err := findMetricByName(metric.ID, metric.MType)
-	if err != nil {
-		log.Println("Bad request 4")
-		http.Error(w, err.Error(), http.StatusBadRequest)
+	resultJSON, err := getMetricJSON(metric.ID, metric.MType)
+	if errors.Is(err, errBadRequest) {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	if errors.Is(err, errNotFound) {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+	if errors.Is(err, errNotImplemented) {
+		w.WriteHeader(http.StatusNotImplemented)
 		return
 	}
 
-	result := Metrics{
-		ID:    metric.ID,
-		MType: metric.MType,
-	}
-	switch result.MType {
-	case "counter":
-		c, err := strconv.Atoi(updated)
-		if err != nil {
-			log.Println("Bad request 5")
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
-		}
-		c64 := int64(c)
-		result.Delta = &c64
-	case "gauge":
-		g, err := strconv.ParseFloat(updated, 64)
-		if err != nil {
-			log.Println("Bad request 6")
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
-		}
-		result.Value = &g
-	}
-
-	resultJSON, err := json.Marshal(result)
-	if err != nil {
-		log.Println("Bad request 7")
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	w.Header().Set("content-type", "application/json")
 	if _, err = w.Write(resultJSON); err != nil {
 		return
 	}
 	w.Header().Set("content-length", strconv.Itoa(len(metric.ID)))
+	w.Header().Set("content-type", "application/json")
 	w.WriteHeader(http.StatusOK)
 }
 
 func (h *MetricsHandler) GetMetricFromJSON(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("content-type", "application/json")
 	var buf bytes.Buffer
 	if _, err := buf.ReadFrom(r.Body); err != nil {
 		w.WriteHeader(http.StatusBadRequest)
@@ -259,8 +230,12 @@ func (h *MetricsHandler) GetMetricFromJSON(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	log.Printf("ID: %T", metric.ID)
-	value, err := findMetricByName(metric.ID, metric.MType)
+	resultJSON, err := getMetricJSON(metric.ID, metric.MType)
+	if errors.Is(err, errBadRequest) {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
 	if errors.Is(err, errNotFound) {
 		w.WriteHeader(http.StatusNotFound)
 		return
@@ -270,39 +245,59 @@ func (h *MetricsHandler) GetMetricFromJSON(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	if _, err = io.WriteString(w, ""); err != nil {
-		return
-	}
-	switch metric.MType {
-	case "counter":
-		c, err := strconv.Atoi(value)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
-		}
-		c64 := int64(c)
-		metric.Delta = &c64
-	case "gauge":
-		g, err := strconv.ParseFloat(value, 64)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
-		}
-		metric.Value = &g
-	}
-	resultJSON, err := json.Marshal(metric)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
 	log.Printf("%s", resultJSON)
 	w.Header().Set("content-type", "application/json")
 	if _, err = w.Write(resultJSON); err != nil {
 		return
 	}
-	w.Header().Set("content-length", strconv.Itoa(len(value)))
+	w.Header().Set("content-length", strconv.Itoa(len(metric.ID)))
 	w.Header().Set("content-type", "application/json")
 	w.WriteHeader(http.StatusOK)
+}
+
+func collectFromJSON(metric Metrics) error {
+	metricValue := ""
+	switch metric.MType {
+	case storage.Counter:
+		metricValue = strconv.Itoa(int(*metric.Delta))
+	case storage.Gauge:
+		metricValue = fmt.Sprintf("%.11f", *metric.Value)
+	}
+
+	return findMetric(metric.ID, metric.MType, metricValue)
+}
+
+func getMetricJSON(metricName string, metricType string) ([]byte, error) {
+	updated, err := findMetricByName(metricName, metricType)
+	if err != nil {
+		return nil, err
+	}
+
+	result := Metrics{
+		ID:    metricName,
+		MType: metricType,
+	}
+	switch result.MType {
+	case storage.Counter:
+		counter, err := strconv.Atoi(updated)
+		if err != nil {
+			return nil, errBadRequest
+		}
+		c64 := int64(counter)
+		result.Delta = &c64
+	case storage.Gauge:
+		g, err := strconv.ParseFloat(updated, 64)
+		if err != nil {
+			return nil, errBadRequest
+		}
+		result.Value = &g
+	}
+
+	resultJSON, err := json.Marshal(result)
+	if err != nil {
+		return nil, errBadRequest
+	}
+	return resultJSON, nil
 }
 
 type MetricsHandlerInterface interface {

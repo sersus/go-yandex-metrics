@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/sersus/go-yandex-metrics/internal/compressor"
 	"github.com/sersus/go-yandex-metrics/internal/handlers"
 	log "github.com/sersus/go-yandex-metrics/internal/logger"
 	"go.uber.org/zap"
@@ -30,6 +31,7 @@ func main() {
 	metricsHandler := &handlers.MetricsHandler{}
 	r := chi.NewRouter()
 	r.Use(log.RequestLogger)
+	r.Use(compressor.Compress)
 	r.Post("/update/", metricsHandler.SaveMetricFromJSON)
 	r.Post("/value/", metricsHandler.GetMetricFromJSON)
 	r.Post("/update/*", metricsHandler.SendMetric)

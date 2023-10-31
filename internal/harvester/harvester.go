@@ -1,6 +1,8 @@
 package harvester
 
 import (
+	"bytes"
+	"compress/gzip"
 	"fmt"
 	"log"
 	"math/rand"
@@ -72,22 +74,22 @@ func PerformCollect(h Iharvester, pollInterval time.Duration) error {
 }
 
 func SendMetricsToServer(client *resty.Client, options *config.Options) error {
+	req := client.R().
+		SetHeader("Content-Type", "application/json").
+		SetHeader("Accept-Encoding", "gzip").
+		SetHeader("Content-Encoding", "gzip")
 	for {
 		for n, i := range storage.MetricsStorage.Metrics {
 			switch i.MetricType {
 			case storage.Counter:
-				req := client.R().
-					SetHeader("Content-Type", "application/json").SetBody(fmt.Sprintf(`{"id":%q, "type":"counter", "delta":%d}`, n, i.Value))
-				//Post(fmt.Sprintf("http://%s/update/%s/%s/%d", options.Address, i.MetricType, n, i.Value))
-				if err := sendRequest(req, options.Address); err != nil {
-					return err
+				jsonInput := fmt.Sprintf(`{"id":%q, "type":"counter", "delta": %d}`, n, i.Value)
+				if err := sendRequest(req, jsonInput, options.Address); err != nil {
+					return fmt.Errorf("error while sending agent request for counter metric: %w", err)
 				}
 			case storage.Gauge:
-				req := client.R().
-					SetHeader("Content-Type", "application/json").SetBody(fmt.Sprintf(`{"id":%q, "type":"gauge", "value":%f}`, n, i.Value))
-				//Post(fmt.Sprintf("http://%s/update/%s/%s/%f", options.Address, i.MetricType, n, i.Value))
-				if err := sendRequest(req, options.Address); err != nil {
-					return err
+				jsonInput := fmt.Sprintf(`{"id":%q, "type":"gauge", "value": %f}`, n, i.Value)
+				if err := sendRequest(req, jsonInput, options.Address); err != nil {
+					return fmt.Errorf("error while sending agent request for gauge metric: %w", err)
 				}
 			}
 		}
@@ -95,12 +97,22 @@ func SendMetricsToServer(client *resty.Client, options *config.Options) error {
 	}
 }
 
-func sendRequest(req *resty.Request, addr string) error {
+func sendRequest(req *resty.Request, jsonInput string, addr string) error {
+	buf := bytes.NewBuffer(nil)
+	zb := gzip.NewWriter(buf)
+	if _, err := zb.Write([]byte(jsonInput)); err != nil {
+		return fmt.Errorf("error while write json input: %w", err)
+	}
+	if err := zb.Close(); err != nil {
+		return fmt.Errorf("error while trying to close writer: %w", err)
+	}
 	err := retry.Do(
 		func() error {
 			var err error
-			_, err = req.Post(fmt.Sprintf("http://%s/update/", addr))
-			return err
+			if _, err = req.SetBody(buf).Post(fmt.Sprintf("http://%s/update/", addr)); err != nil {
+				return fmt.Errorf("error while trying to create post request: %w", err)
+			}
+			return nil
 		},
 		retry.Attempts(10),
 		retry.OnRetry(func(n uint, err error) {
@@ -108,8 +120,7 @@ func sendRequest(req *resty.Request, addr string) error {
 		}),
 	)
 	if err != nil {
-		return err
+		return fmt.Errorf("error while trying to connect to server: %w", err)
 	}
-	// do something with the response
 	return nil
 }
