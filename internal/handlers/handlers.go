@@ -31,9 +31,17 @@ func findMetric(metricName string, metricType string, metricValue string) error 
 		}
 
 		if storage.MetricsStorage.Metrics[metricName].Value != nil {
-			value += storage.MetricsStorage.Metrics[metricName].Value.(int)
+			log.Printf("metric name: %s new value : %s", metricName, metricValue)
+			log.Println("old value : ", storage.MetricsStorage.Metrics[metricName].Value)
+			switch storage.MetricsStorage.Metrics[metricName].Value.(type) {
+			case int:
+				value += storage.MetricsStorage.Metrics[metricName].Value.(int)
+			case float64:
+				value += int(storage.MetricsStorage.Metrics[metricName].Value.(float64))
+			}
 		}
 		storage.MetricsStorage.Metrics[metricName] = storage.Metric{Value: value, MetricType: metricType}
+
 	case storage.Gauge:
 		_, err := strconv.ParseFloat(metricValue, 64)
 		if err != nil {
@@ -57,7 +65,14 @@ func findMetricByName(metricName string, metricType string) (string, error) {
 		if !ok {
 			return "", errNotFound
 		}
-		return strconv.Itoa(metric.Value.(int)), nil
+		value := 0
+		switch storage.MetricsStorage.Metrics[metricName].Value.(type) {
+		case int:
+			value = metric.Value.(int)
+		case float64:
+			value = int(metric.Value.(float64))
+		}
+		return strconv.Itoa(value), nil
 	case storage.Gauge:
 		metric, ok := storage.MetricsStorage.Metrics[metricName]
 		if !ok {
@@ -72,6 +87,7 @@ func findMetricByName(metricName string, metricType string) (string, error) {
 
 func (h *MetricsHandler) SendMetric(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
+		log.Printf("SendMetric Method not allowed: %s", r.Method)
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		return
 	}
@@ -107,6 +123,7 @@ func (h *MetricsHandler) SendMetric(w http.ResponseWriter, r *http.Request) {
 
 func (h *MetricsHandler) GetMetric(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
+		log.Printf("GetMetric Method not allowed: %s", r.Method)
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		return
 	}
@@ -166,6 +183,7 @@ func (h *MetricsHandler) ShowMetrics(w http.ResponseWriter, r *http.Request) {
 
 func (h *MetricsHandler) SaveMetricFromJSON(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
+		log.Printf("SaveMetricFromJSON Method not allowed: %s", r.Method)
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		return
 	}
