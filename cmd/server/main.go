@@ -39,7 +39,8 @@ func main() {
 
 	log.SugarLogger = *logger.Sugar()
 
-	flag.Parse()
+	config.ParceServerFlags(&options)
+	//flag.Parse()
 	//envAddr, exists := os.LookupEnv("ADDRESS")
 	//if exists && envAddr != "" {
 	//	*address = envAddr
