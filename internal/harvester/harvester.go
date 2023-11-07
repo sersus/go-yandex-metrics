@@ -15,6 +15,10 @@ import (
 	"github.com/sersus/go-yandex-metrics/internal/storage"
 )
 
+type harvester struct {
+	storage *storage.MemStorage
+}
+
 func (h *harvester) Collect(metrics *runtime.MemStats) {
 	h.storage.Metrics["Alloc"] = storage.Metric{Value: float64(metrics.Alloc), MetricType: storage.Gauge}
 	h.storage.Metrics["BuckHashSys"] = storage.Metric{Value: float64(metrics.BuckHashSys), MetricType: storage.Gauge}
@@ -54,10 +58,6 @@ func (h *harvester) Collect(metrics *runtime.MemStats) {
 
 func NewHarvester(ms *storage.MemStorage) *harvester {
 	return &harvester{ms}
-}
-
-type harvester struct {
-	storage *storage.MemStorage
 }
 
 type Iharvester interface {

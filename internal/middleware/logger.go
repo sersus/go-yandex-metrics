@@ -1,9 +1,10 @@
-package logger
+package middleware
 
 import (
-	"go.uber.org/zap"
 	"net/http"
 	"time"
+
+	"go.uber.org/zap"
 )
 
 var SugarLogger zap.SugaredLogger

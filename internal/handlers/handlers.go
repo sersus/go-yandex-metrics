@@ -177,7 +177,6 @@ func (h *MetricsHandler) ShowMetrics(w http.ResponseWriter, r *http.Request) {
 </html>
 `
 	w.Header().Set("content-type", "Content-Type: text/html; charset=utf-8")
-	//w.WriteHeader(http.StatusOK)
 	w.Write([]byte(page))
 }
 
