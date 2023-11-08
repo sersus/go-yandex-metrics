@@ -25,7 +25,7 @@ func init() {
 	flag.IntVar(&options.StoreInterval, "i", 300, "store interval")
 	flag.StringVar(&options.FileStoragePath, "f", "/tmp/metrics-db.json", "file path")
 	flag.BoolVar(&options.Restore, "r", true, "restore metrics from file on start")
-	flag.StringVar(&options.ConnectDB, "d", "", "database connection")
+	flag.StringVar(&options.ConnectDB, "d", "host=localhost port=5432 user=postgres password=mysecretpassword dbname=metrics sslmode=disable", "database connection")
 }
 
 func main() {
@@ -35,7 +35,7 @@ func main() {
 	}
 	defer logger.Sync()
 
-	db, err := sql.Open("postgres", "host=localhost port=5432 user=postgres password=mysecretpassword dbname=metrics sslmode=disable")
+	db, err := sql.Open("postgres", options.ConnectDB)
 	if err != nil {
 		middleware.SugarLogger.Error(err.Error(), "Failed to connect to the database:")
 		return
