@@ -7,7 +7,7 @@ import (
 	"database/sql"
 
 	"github.com/go-chi/chi/v5"
-	_ "github.com/lib/pq"
+	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/sersus/go-yandex-metrics/internal/config"
 	"github.com/sersus/go-yandex-metrics/internal/handlers"
 	"github.com/sersus/go-yandex-metrics/internal/middleware"
@@ -25,7 +25,8 @@ func init() {
 	flag.IntVar(&options.StoreInterval, "i", 300, "store interval")
 	flag.StringVar(&options.FileStoragePath, "f", "/tmp/metrics-db.json", "file path")
 	flag.BoolVar(&options.Restore, "r", true, "restore metrics from file on start")
-	flag.StringVar(&options.ConnectDB, "d", "host=localhost port=5432 user=postgres password=mysecretpassword dbname=metrics sslmode=disable", "database connection")
+	//flag.StringVar(&options.ConnectDB, "d", "host=localhost port=5432 user=postgres password=mysecretpassword dbname=metrics sslmode=disable", "database connection")
+	flag.StringVar(&options.ConnectDB, "d", "localhost:5432/metrics?sslmode=disable", "database connection")
 }
 
 func main() {
@@ -36,7 +37,7 @@ func main() {
 	defer logger.Sync()
 	middleware.SugarLogger = *logger.Sugar()
 
-	db, err := sql.Open("postgres", options.ConnectDB)
+	db, err := sql.Open("pgx", options.ConnectDB)
 	if err != nil {
 		middleware.SugarLogger.Error(err.Error(), "Failed to connect to the database:")
 		return
