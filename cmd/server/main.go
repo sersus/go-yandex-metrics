@@ -3,7 +3,9 @@ package main
 import (
 	"flag"
 	"net/http"
+	"time"
 
+	"context"
 	"database/sql"
 
 	"github.com/go-chi/chi/v5"
@@ -37,12 +39,12 @@ func main() {
 	defer logger.Sync()
 	middleware.SugarLogger = *logger.Sugar()
 
-	db, err := sql.Open("pgx", options.ConnectDB)
-	if err != nil {
-		middleware.SugarLogger.Error(err.Error(), "Failed to connect to the database:")
-		return
-	}
-	defer db.Close()
+	//db, err := sql.Open("pgx", options.ConnectDB)
+	//if err != nil {
+	//	middleware.SugarLogger.Error(err.Error(), "Failed to connect to the database:")
+	//	return
+	//}
+	//defer db.Close()
 
 	config.ParceServerFlags(&options)
 	metricsHandler := &handlers.MetricsHandler{}
@@ -55,16 +57,36 @@ func main() {
 	r.Get("/value/*", metricsHandler.GetMetric)
 	r.Get("/", metricsHandler.ShowMetrics)
 	r.Get("/ping", func(w http.ResponseWriter, r *http.Request) {
-		if err := db.Ping(); err != nil {
-			//fmt.Println("Database ping failed:", err)
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+		db, err := sql.Open("pgx", options.ConnectDB)
+		if err != nil {
+			panic(err)
+		}
+		defer db.Close()
+		if err := db.PingContext(ctx); err != nil {
 			middleware.SugarLogger.Error(err.Error(), "Database ping failed")
 			middleware.SugarLogger.Infof("Connection string  %s", options.ConnectDB)
-			http.Error(w, "Database connection error", http.StatusInternalServerError)
+			//http.Error(w, "Database connection error", http.StatusInternalServerError)
+			w.WriteHeader(http.StatusInternalServerError)
+		} else {
+			w.WriteHeader(http.StatusOK)
+		}
+		_, err = w.Write([]byte("pong"))
+		if err != nil {
 			return
 		}
 
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("Database connection is OK"))
+		//if err := db.Ping(); err != nil {
+		//fmt.Println("Database ping failed:", err)
+		//	middleware.SugarLogger.Error(err.Error(), "Database ping failed")
+		//	middleware.SugarLogger.Infof("Connection string  %s", options.ConnectDB)
+		//	http.Error(w, "Database connection error", http.StatusInternalServerError)
+		//	return
+		//}
+
+		//w.WriteHeader(http.StatusOK)
+		//w.Write([]byte("Database connection is OK"))
 	})
 
 	middleware.SugarLogger.Infow(
