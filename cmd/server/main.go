@@ -35,7 +35,7 @@ func main() {
 	}
 	defer logger.Sync()
 
-	db, err := sql.Open("postgres", options.ConnectDB)
+	db, err := sql.Open("postgres", "host=localhost port=5432 user=postgres password=mysecretpassword dbname=metrics sslmode=disable")
 	if err != nil {
 		middleware.SugarLogger.Error(err.Error(), "Failed to connect to the database:")
 		return
@@ -57,6 +57,7 @@ func main() {
 	r.Get("/ping", func(w http.ResponseWriter, r *http.Request) {
 		if err := db.Ping(); err != nil {
 			//fmt.Println("Database ping failed:", err)
+			middleware.SugarLogger.Error(err.Error(), "Database ping failed")
 			http.Error(w, "Database connection error", http.StatusInternalServerError)
 			return
 		}
