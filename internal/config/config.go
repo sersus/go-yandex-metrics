@@ -17,6 +17,7 @@ type ServerOptions struct {
 	StoreInterval   int
 	FileStoragePath string
 	Restore         bool
+	ConnectDB       string
 }
 
 func ParceFlags(options *Options) {
@@ -52,5 +53,9 @@ func ParceServerFlags(options *ServerOptions) {
 	envRestore, exists := os.LookupEnv("RESTORE")
 	if exists && envRestore != "" {
 		options.Restore, _ = strconv.ParseBool(envRestore)
+	}
+	envDB, exists := os.LookupEnv("DATABASE_DSN")
+	if exists && envDB != "" {
+		options.ConnectDB = envDB
 	}
 }
