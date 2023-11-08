@@ -278,7 +278,7 @@ func collectFromJSON(metric Metrics) error {
 	case storage.Counter:
 		metricValue = strconv.Itoa(int(*metric.Delta))
 	case storage.Gauge:
-		metricValue = fmt.Sprintf("%.12f", *metric.Value)
+		metricValue = fmt.Sprintf("%.13f", *metric.Value)
 	}
 
 	return findMetric(metric.ID, metric.MType, metricValue)

@@ -26,7 +26,7 @@ func init() {
 	flag.StringVar(&options.FileStoragePath, "f", "/tmp/metrics-db.json", "file path")
 	flag.BoolVar(&options.Restore, "r", true, "restore metrics from file on start")
 	//flag.StringVar(&options.ConnectDB, "d", "host=localhost port=5432 user=postgres password=mysecretpassword dbname=metrics sslmode=disable", "database connection")
-	flag.StringVar(&options.ConnectDB, "d", "localhost:5432/metrics?sslmode=disable", "database connection")
+	flag.StringVar(&options.ConnectDB, "d", "postgres://postgres:mysecretpassword@localhost:5432/metrics?sslmode=disable", "database connection")
 }
 
 func main() {
