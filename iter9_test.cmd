@@ -1,0 +1,1 @@
+metricstest -test.v -test.run=^TestIteration9$ -agent-binary-path="cmd/agent/agent.exe" -binary-path="cmd/server/server.exe" -source-path=. -server-port=8080 -file-storage-path="\tmp\1.json" 

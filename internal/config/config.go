@@ -12,6 +12,13 @@ type Options struct {
 	PollInterval   int
 }
 
+type ServerOptions struct {
+	Address         string
+	StoreInterval   int
+	FileStoragePath string
+	Restore         bool
+}
+
 func ParceFlags(options *Options) {
 	flag.Parse()
 	envAddr, exists := os.LookupEnv("ADDRESS")
@@ -25,5 +32,25 @@ func ParceFlags(options *Options) {
 	envRepInt, exists := os.LookupEnv("REPORT_INTERVAL")
 	if exists && envRepInt != "" {
 		options.ReportInterval, _ = strconv.Atoi(envRepInt)
+	}
+}
+
+func ParceServerFlags(options *ServerOptions) {
+	flag.Parse()
+	envAddr, exists := os.LookupEnv("ADDRESS")
+	if exists && envAddr != "" {
+		options.Address = envAddr
+	}
+	envStoreInt, exists := os.LookupEnv("STORE_INTERVAL")
+	if exists && envStoreInt != "" {
+		options.StoreInterval, _ = strconv.Atoi(envStoreInt)
+	}
+	envFilePath, exists := os.LookupEnv("FILE_STORAGE_PATH")
+	if exists && envFilePath != "" {
+		options.FileStoragePath = envFilePath
+	}
+	envRestore, exists := os.LookupEnv("RESTORE")
+	if exists && envRestore != "" {
+		options.Restore, _ = strconv.ParseBool(envRestore)
 	}
 }
