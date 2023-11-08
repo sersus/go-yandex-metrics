@@ -34,6 +34,7 @@ func main() {
 		panic(err)
 	}
 	defer logger.Sync()
+	middleware.SugarLogger = *logger.Sugar()
 
 	db, err := sql.Open("postgres", options.ConnectDB)
 	if err != nil {
@@ -41,8 +42,6 @@ func main() {
 		return
 	}
 	defer db.Close()
-
-	middleware.SugarLogger = *logger.Sugar()
 
 	config.ParceServerFlags(&options)
 	metricsHandler := &handlers.MetricsHandler{}
@@ -58,6 +57,7 @@ func main() {
 		if err := db.Ping(); err != nil {
 			//fmt.Println("Database ping failed:", err)
 			middleware.SugarLogger.Error(err.Error(), "Database ping failed")
+			middleware.SugarLogger.Infof("Connection string  %s", options.ConnectDB)
 			http.Error(w, "Database connection error", http.StatusInternalServerError)
 			return
 		}
