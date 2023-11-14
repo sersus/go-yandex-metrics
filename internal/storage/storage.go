@@ -2,14 +2,22 @@ package storage
 
 import (
 	"bufio"
+	"database/sql"
 	"encoding/json"
 	"os"
 	"time"
 
+	"github.com/sersus/go-yandex-metrics/internal/config"
 	"github.com/sersus/go-yandex-metrics/internal/middleware"
 )
 
-type MetricKind int
+type storeKind int
+
+const (
+	file storeKind = iota
+	db
+	mem
+)
 
 const (
 	Counter = "counter"
@@ -23,6 +31,14 @@ type Metric struct {
 
 type MemStorage struct {
 	Metrics map[string]Metric
+	kind    storeKind
+}
+
+func NewMetricsStorage(options *config.ServerOptions) (*MemStorage, error) {
+	if options.FileStoragePath != "" && options.ConnectDB == "" {
+
+	}
+	return nil, nil
 }
 
 var MetricsStorage = MemStorage{Metrics: make(map[string]Metric)}
@@ -78,4 +94,61 @@ func (metrics MemStorage) Restore(filePath string) error {
 		return err
 	}
 	return nil
+}
+
+type Storekeeper interface {
+	Save() error
+	Restore() (*MemStorage, error)
+}
+
+type filestorage struct {
+	path string
+}
+
+func newfilestorage(path string) *filestorage {
+	return &filestorage{path: path}
+}
+
+func (s *filestorage) Restore() (*MemStorage, error) {
+	file, err := os.OpenFile(s.path, os.O_RDONLY|os.O_CREATE, 0666)
+	if err != nil {
+		return nil, err
+	}
+	scanner := bufio.NewScanner(file)
+	if !scanner.Scan() {
+		return nil, err
+	}
+	data := scanner.Bytes()
+	var metrics MemStorage
+	if err = json.Unmarshal(data, &metrics); err != nil {
+		return nil, err
+	}
+	return &metrics, nil
+
+}
+
+type dbstorage struct {
+	db *sql.DB
+}
+
+func newdbstorage(path string) *dbstorage {
+	return nil
+}
+
+func (s *dbstorage) Restore() (*MemStorage, error) {
+	file, err := os.OpenFile(s.path, os.O_RDONLY|os.O_CREATE, 0666)
+	if err != nil {
+		return nil, err
+	}
+	scanner := bufio.NewScanner(file)
+	if !scanner.Scan() {
+		return nil, err
+	}
+	data := scanner.Bytes()
+	var metrics MemStorage
+	if err = json.Unmarshal(data, &metrics); err != nil {
+		return nil, err
+	}
+	return &metrics, nil
+
 }
