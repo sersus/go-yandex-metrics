@@ -9,7 +9,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-resty/resty/v2"
-	aggregator "github.com/sersus/go-yandex-metrics/internal/harvester"
+	"github.com/sersus/go-yandex-metrics/internal/harvester"
 	"github.com/sersus/go-yandex-metrics/internal/storage"
 	"github.com/stretchr/testify/assert"
 )
@@ -42,7 +42,7 @@ func TestSaveMetric(t *testing.T) {
 			expectedMetric: storage.Metric{
 				ID:    "Counter1",
 				MType: storage.Counter,
-				Delta: aggregator.PtrInt64(15),
+				Delta: harvester.PtrInt64(15),
 			},
 			expectedCode: http.StatusOK,
 		},
@@ -54,7 +54,7 @@ func TestSaveMetric(t *testing.T) {
 			expectedMetric: storage.Metric{
 				ID:    "Gauge1",
 				MType: storage.Gauge,
-				Value: aggregator.PtrFloat64(12.282),
+				Value: harvester.PtrFloat64(12.282),
 			},
 			expectedCode: http.StatusOK,
 		},
@@ -100,7 +100,7 @@ func TestSaveMetric(t *testing.T) {
 			assert.NoError(t, err, "error making HTTP request")
 			assert.Equal(t, resp.StatusCode(), tt.expectedCode)
 
-			value, err := storage.Collector.GetMetric(tt.mName)
+			value, err := storage.Harvester.GetMetric(tt.mName)
 			if err != nil {
 				assert.EqualError(t, err, tt.expectedError.Error())
 			} else {
@@ -191,7 +191,7 @@ func TestSaveMetricFromJSON(t *testing.T) {
 			assert.NoError(t, err, "error making HTTP request")
 			assert.Equal(t, resp.StatusCode(), tt.expectedCode)
 
-			value, err := storage.Collector.GetMetricJSON(tt.mName)
+			value, err := storage.Harvester.GetMetricJSON(tt.mName)
 			if err != nil {
 				assert.EqualError(t, err, tt.expectedError.Error())
 			} else {

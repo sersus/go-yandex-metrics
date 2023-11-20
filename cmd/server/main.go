@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/sersus/go-yandex-metrics/internal/config"
-	log "github.com/sersus/go-yandex-metrics/internal/middleware"
+	"github.com/sersus/go-yandex-metrics/internal/middleware"
 	"github.com/sersus/go-yandex-metrics/internal/router/router"
 	"github.com/sersus/go-yandex-metrics/internal/storage"
 	"github.com/sersus/go-yandex-metrics/internal/storager"
@@ -25,7 +25,7 @@ func main() {
 	}
 	defer logger.Sync()
 
-	log.SugarLogger = *logger.Sugar()
+	middleware.SugarLogger = *logger.Sugar()
 
 	params := config.Init(
 		config.WithAddr(),
@@ -37,7 +37,7 @@ func main() {
 
 	r := router.New(*params)
 
-	log.SugarLogger.Infow(
+	middleware.SugarLogger.Infow(
 		"Starting server",
 		"addr", params.FlagRunAddr,
 	)
@@ -49,7 +49,7 @@ func main() {
 	} else if params.DatabaseAddress != "" {
 		saver, err = storager.NewDBSaver(params)
 		if err != nil {
-			log.SugarLogger.Errorf(err.Error())
+			middleware.SugarLogger.Errorf(err.Error())
 		}
 	}
 
@@ -58,10 +58,10 @@ func main() {
 	if params.Restore && (params.FileStoragePath != "" || params.DatabaseAddress != "") {
 		metrics, err := saver.Restore(ctx)
 		if err != nil {
-			log.SugarLogger.Error(err.Error(), "restore error")
+			middleware.SugarLogger.Error(err.Error(), "restore error")
 		}
-		storage.Collector.Metrics = metrics
-		log.SugarLogger.Info("metrics restored")
+		storage.Harvester.Metrics = metrics
+		middleware.SugarLogger.Info("metrics restored")
 	}
 
 	// regularly save metrics if needed
@@ -71,7 +71,7 @@ func main() {
 
 	// run server
 	if err := http.ListenAndServe(params.FlagRunAddr, r); err != nil {
-		log.SugarLogger.Fatalw(err.Error(), "event", "start server")
+		middleware.SugarLogger.Fatalw(err.Error(), "event", "start server")
 	}
 }
 
@@ -82,8 +82,8 @@ func saveMetrics(ctx context.Context, saver saver, interval int) {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			if err := saver.Save(ctx, storage.Collector.Metrics); err != nil {
-				log.SugarLogger.Error(err.Error(), "save error")
+			if err := saver.Save(ctx, storage.Harvester.Metrics); err != nil {
+				middleware.SugarLogger.Error(err.Error(), "save error")
 			}
 		}
 	}

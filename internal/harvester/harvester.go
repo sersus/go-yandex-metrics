@@ -48,12 +48,12 @@ func (a *Harvest) Harvest() {
 	a.h.Collect(storage.Metric{ID: "RandomValue", MType: storage.Gauge, Value: PtrFloat64(float64(rand.Int()))})
 	a.h.Collect(storage.Metric{ID: "LastGC", MType: storage.Gauge, Value: PtrFloat64(float64(metrics.LastGC))})
 
-	cnt, _ := storage.Collector.GetMetric("PollCount")
+	cnt, _ := storage.Harvester.GetMetric("PollCount")
 	counter := int64(0)
 	if cnt.Delta != nil {
 		counter = *cnt.Delta + 1
 	}
-	storage.Collector.Collect(storage.Metric{ID: "PollCount", MType: storage.Counter, Delta: PtrInt64(counter)})
+	storage.Harvester.Collect(storage.Metric{ID: "PollCount", MType: storage.Counter, Delta: PtrInt64(counter)})
 }
 
 func New(harvester Harvester) *Harvest {

@@ -23,7 +23,7 @@ func main() {
 
 	errs, _ := errgroup.WithContext(ctx)
 	errs.Go(func() error {
-		agg := harvester.New(&storage.Collector)
+		agg := harvester.New(&storage.Harvester)
 		for {
 			agg.Harvest()
 			time.Sleep(time.Duration(params.PollInterval) * time.Second)
@@ -48,7 +48,7 @@ func send(client *resty.Client, reportTimeout int, addr string) error {
 		SetHeader("Content-Encoding", "gzip")
 
 	for {
-		for _, v := range storage.Collector.Metrics {
+		for _, v := range storage.Harvester.Metrics {
 			jsonInput, _ := json.Marshal(v)
 			if err := sendRequest(req, string(jsonInput), addr); err != nil {
 				return fmt.Errorf("error while sending agent request for counter metric: %w", err)
