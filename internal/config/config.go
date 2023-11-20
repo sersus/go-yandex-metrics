@@ -30,8 +30,8 @@ type Options struct {
 func WithDatabase() Option {
 	return func(p *Options) {
 		flag.StringVar(&p.DatabaseAddress, "d", "", "connection string for db")
-		if envDbAddr := os.Getenv("DATABASE_DSN"); envDbAddr != "" {
-			p.DatabaseAddress = envDbAddr
+		if envDBAddr := os.Getenv("DATABASE_DSN"); envDBAddr != "" {
+			p.DatabaseAddress = envDBAddr
 		}
 	}
 }
