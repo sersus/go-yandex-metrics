@@ -6,56 +6,110 @@ import (
 	"strconv"
 )
 
-type Options struct {
-	Address        string
-	ReportInterval int
-	PollInterval   int
-}
+const (
+	defaultAddr            string = "localhost:8080"
+	defaultReportInterval  int    = 10
+	defaultPollInterval    int    = 2
+	defaultStoreInterval   int    = 30
+	defaultFileStoragePath string = "/tmp/short-url-db.json"
+	defaultRestore         bool   = true
+)
 
-type ServerOptions struct {
-	Address         string
+type Option func(params *Options)
+
+type Options struct {
+	FlagRunAddr     string
+	DatabaseAddress string
+	ReportInterval  int
+	PollInterval    int
 	StoreInterval   int
 	FileStoragePath string
 	Restore         bool
-	ConnectDB       string
 }
 
-func ParceFlags(options *Options) {
-	flag.Parse()
-	envAddr, exists := os.LookupEnv("ADDRESS")
-	if exists && envAddr != "" {
-		options.Address = envAddr
-	}
-	envPollInt, exists := os.LookupEnv("POLL_INTERVAL")
-	if exists && envPollInt != "" {
-		options.PollInterval, _ = strconv.Atoi(envPollInt)
-	}
-	envRepInt, exists := os.LookupEnv("REPORT_INTERVAL")
-	if exists && envRepInt != "" {
-		options.ReportInterval, _ = strconv.Atoi(envRepInt)
+func WithDatabase() Option {
+	return func(p *Options) {
+		flag.StringVar(&p.DatabaseAddress, "d", "", "connection string for db")
+		if envDbAddr := os.Getenv("DATABASE_DSN"); envDbAddr != "" {
+			p.DatabaseAddress = envDbAddr
+		}
 	}
 }
 
-func ParceServerFlags(options *ServerOptions) {
+func WithAddr() Option {
+	return func(p *Options) {
+		flag.StringVar(&p.FlagRunAddr, "a", defaultAddr, "address and port to run server")
+		if envRunAddr := os.Getenv("ADDRESS"); envRunAddr != "" {
+			p.FlagRunAddr = envRunAddr
+		}
+	}
+}
+
+func WithReportInterval() Option {
+	return func(p *Options) {
+		flag.IntVar(&p.ReportInterval, "r", defaultReportInterval, "report interval")
+		if envReportInterval := os.Getenv("REPORT_INTERVAL"); envReportInterval != "" {
+			reportIntervalEnv, err := strconv.Atoi(envReportInterval)
+			if err == nil {
+				p.ReportInterval = reportIntervalEnv
+			}
+		}
+	}
+}
+
+func WithPollInterval() Option {
+	return func(p *Options) {
+		flag.IntVar(&p.PollInterval, "p", defaultPollInterval, "poll interval")
+		if envPollInterval := os.Getenv("POLL_INTERVAL"); envPollInterval != "" {
+			pollIntervalEnv, err := strconv.Atoi(envPollInterval)
+			if err == nil {
+				p.PollInterval = pollIntervalEnv
+			}
+		}
+	}
+}
+
+func WithStoreInterval() Option {
+	return func(p *Options) {
+		flag.IntVar(&p.StoreInterval, "i", defaultStoreInterval, "store interval in seconds")
+		if envStoreInterval := os.Getenv("STORE_INTERVAL"); envStoreInterval != "" {
+			storeIntervalEnv, err := strconv.Atoi(envStoreInterval)
+			if err == nil {
+				p.StoreInterval = storeIntervalEnv
+			}
+		}
+	}
+}
+
+func WithFileStoragePath() Option {
+	return func(p *Options) {
+		flag.StringVar(&p.FileStoragePath, "f", defaultFileStoragePath, "file name for metrics collection")
+		if envFileStoragePath := os.Getenv("FILE_STORAGE_PATH"); envFileStoragePath != "" {
+			fileStoragePath, err := strconv.Atoi(envFileStoragePath)
+			if err == nil {
+				p.StoreInterval = fileStoragePath
+			}
+		}
+	}
+}
+
+func WithRestore() Option {
+	return func(p *Options) {
+		flag.BoolVar(&p.Restore, "r", defaultRestore, "restore data from file")
+		if envRestore := os.Getenv("RESTORE"); envRestore != "" {
+			restore, err := strconv.Atoi(envRestore)
+			if err == nil {
+				p.StoreInterval = restore
+			}
+		}
+	}
+}
+
+func Init(opts ...Option) *Options {
+	p := &Options{}
+	for _, opt := range opts {
+		opt(p)
+	}
 	flag.Parse()
-	envAddr, exists := os.LookupEnv("ADDRESS")
-	if exists && envAddr != "" {
-		options.Address = envAddr
-	}
-	envStoreInt, exists := os.LookupEnv("STORE_INTERVAL")
-	if exists && envStoreInt != "" {
-		options.StoreInterval, _ = strconv.Atoi(envStoreInt)
-	}
-	envFilePath, exists := os.LookupEnv("FILE_STORAGE_PATH")
-	if exists && envFilePath != "" {
-		options.FileStoragePath = envFilePath
-	}
-	envRestore, exists := os.LookupEnv("RESTORE")
-	if exists && envRestore != "" {
-		options.Restore, _ = strconv.ParseBool(envRestore)
-	}
-	envDB, exists := os.LookupEnv("DATABASE_DSN")
-	if exists && envDB != "" {
-		options.ConnectDB = envDB
-	}
+	return p
 }

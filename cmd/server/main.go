@@ -1,34 +1,21 @@
 package main
 
 import (
-	"flag"
+	"context"
 	"net/http"
 	"time"
 
-	"context"
-	"database/sql"
-
-	"github.com/go-chi/chi/v5"
-	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/sersus/go-yandex-metrics/internal/config"
-	"github.com/sersus/go-yandex-metrics/internal/handlers"
-	"github.com/sersus/go-yandex-metrics/internal/middleware"
-
+	log "github.com/sersus/go-yandex-metrics/internal/middleware"
+	"github.com/sersus/go-yandex-metrics/internal/router/router"
 	"github.com/sersus/go-yandex-metrics/internal/storage"
+	"github.com/sersus/go-yandex-metrics/internal/storager"
 	"go.uber.org/zap"
 )
 
-var options config.ServerOptions
-
-var metricsFromFile = storage.MetricsStorage
-
-func init() {
-	flag.StringVar(&options.Address, "a", "localhost:8080", "Server listening address")
-	flag.IntVar(&options.StoreInterval, "i", 300, "store interval")
-	flag.StringVar(&options.FileStoragePath, "f", "/tmp/metrics-db.json", "file path")
-	flag.BoolVar(&options.Restore, "r", true, "restore metrics from file on start")
-	//flag.StringVar(&options.ConnectDB, "d", "host=localhost port=5432 user=postgres password=mysecretpassword dbname=metrics sslmode=disable", "database connection")
-	flag.StringVar(&options.ConnectDB, "d", "postgres://postgres:mysecretpassword@localhost:5432/metrics?sslmode=disable", "database connection")
+type saver interface {
+	Restore(ctx context.Context) ([]storage.Metric, error)
+	Save(ctx context.Context, metrics []storage.Metric) error
 }
 
 func main() {
@@ -37,70 +24,67 @@ func main() {
 		panic(err)
 	}
 	defer logger.Sync()
-	middleware.SugarLogger = *logger.Sugar()
 
-	//db, err := sql.Open("pgx", options.ConnectDB)
-	//if err != nil {
-	//	middleware.SugarLogger.Error(err.Error(), "Failed to connect to the database:")
-	//	return
-	//}
-	//defer db.Close()
+	log.SugarLogger = *logger.Sugar()
 
-	config.ParceServerFlags(&options)
-	metricsHandler := &handlers.MetricsHandler{}
-	r := chi.NewRouter()
-	r.Use(middleware.RequestLogger)
-	r.Use(middleware.Compress)
-	r.Post("/update/", metricsHandler.SaveMetricFromJSON)
-	r.Post("/value/", metricsHandler.GetMetricFromJSON)
-	r.Post("/update/*", metricsHandler.SendMetric)
-	r.Get("/value/*", metricsHandler.GetMetric)
-	r.Get("/", metricsHandler.ShowMetrics)
-	r.Get("/ping", func(w http.ResponseWriter, r *http.Request) {
-		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-		defer cancel()
-		db, err := sql.Open("pgx", options.ConnectDB)
-		if err != nil {
-			panic(err)
-		}
-		defer db.Close()
-		if err := db.PingContext(ctx); err != nil {
-			middleware.SugarLogger.Error(err.Error(), "Database ping failed")
-			middleware.SugarLogger.Infof("Connection string  %s", options.ConnectDB)
-			//http.Error(w, "Database connection error", http.StatusInternalServerError)
-			w.WriteHeader(http.StatusInternalServerError)
-		} else {
-			w.WriteHeader(http.StatusOK)
-		}
-		_, err = w.Write([]byte("pong"))
-		if err != nil {
-			return
-		}
-
-		//if err := db.Ping(); err != nil {
-		//fmt.Println("Database ping failed:", err)
-		//	middleware.SugarLogger.Error(err.Error(), "Database ping failed")
-		//	middleware.SugarLogger.Infof("Connection string  %s", options.ConnectDB)
-		//	http.Error(w, "Database connection error", http.StatusInternalServerError)
-		//	return
-		//}
-
-		//w.WriteHeader(http.StatusOK)
-		//w.Write([]byte("Database connection is OK"))
-	})
-
-	middleware.SugarLogger.Infow(
-		"Starting server",
-		"addr", options.Address,
+	params := config.Init(
+		config.WithAddr(),
+		config.WithStoreInterval(),
+		config.WithFileStoragePath(),
+		config.WithRestore(),
+		config.WithDatabase(),
 	)
-	if options.Restore {
-		if err := metricsFromFile.Restore(options.FileStoragePath); err != nil {
-			middleware.SugarLogger.Error(err.Error(), "restore error")
+
+	r := router.New(*params)
+
+	log.SugarLogger.Infow(
+		"Starting server",
+		"addr", params.FlagRunAddr,
+	)
+
+	// init restorer
+	var saver saver
+	if params.FileStoragePath != "" && params.DatabaseAddress == "" {
+		saver = storager.NewFilesaver(params)
+	} else if params.DatabaseAddress != "" {
+		saver, err = storager.NewDBSaver(params)
+		if err != nil {
+			log.SugarLogger.Errorf(err.Error())
 		}
 	}
 
-	go storage.SaveByInterval(&metricsFromFile, options.FileStoragePath, options.StoreInterval)
-	if err := http.ListenAndServe(options.Address, r); err != nil {
-		middleware.SugarLogger.Fatalw(err.Error(), "event", "start server")
+	// restore previous metrics if needed
+	ctx := context.Background()
+	if params.Restore && (params.FileStoragePath != "" || params.DatabaseAddress != "") {
+		metrics, err := saver.Restore(ctx)
+		if err != nil {
+			log.SugarLogger.Error(err.Error(), "restore error")
+		}
+		storage.Collector.Metrics = metrics
+		log.SugarLogger.Info("metrics restored")
+	}
+
+	// regularly save metrics if needed
+	if params.DatabaseAddress != "" || params.FileStoragePath != "" {
+		go saveMetrics(ctx, saver, params.StoreInterval)
+	}
+
+	// run server
+	if err := http.ListenAndServe(params.FlagRunAddr, r); err != nil {
+		log.SugarLogger.Fatalw(err.Error(), "event", "start server")
+	}
+}
+
+func saveMetrics(ctx context.Context, saver saver, interval int) {
+	ticker := time.NewTicker(time.Duration(interval))
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			if err := saver.Save(ctx, storage.Collector.Metrics); err != nil {
+				log.SugarLogger.Error(err.Error(), "save error")
+			}
+		}
 	}
 }
