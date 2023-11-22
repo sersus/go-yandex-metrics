@@ -253,7 +253,7 @@ func (h *handler) GetMetric(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	case storage.Gauge:
-		if _, err = io.WriteString(w, fmt.Sprintf("%.13f", *value.Value)); err != nil {
+		if _, err = io.WriteString(w, fmt.Sprintf("%.3f", *value.Value)); err != nil {
 			//if _, err = io.WriteString(w, fmt.Sprintf("%g", *value.Value)); err != nil {
 			//if _, err = io.WriteString(w, fmt.Sprint(*value.Value)); err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
