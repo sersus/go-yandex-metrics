@@ -265,14 +265,14 @@ func TestGetMetric(t *testing.T) {
 			name:         "case2",
 			mType:        storage.Gauge,
 			mName:        "Gauge1",
-			mValue:       "100500.278",
+			mValue:       "100500.2780001",
 			expectedCode: http.StatusOK,
 		},
 		{
 			name:         "case3",
 			mType:        storage.Gauge,
 			mName:        "Gauge2",
-			mValue:       "100500.278",
+			mValue:       "100500.278000100",
 			expectedCode: http.StatusOK,
 		},
 		{
