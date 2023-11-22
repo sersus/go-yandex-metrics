@@ -19,6 +19,16 @@ import (
 	"github.com/sersus/go-yandex-metrics/internal/storage"
 )
 
+type handler struct {
+	dbAddress string
+}
+
+func New(db string) *handler {
+	return &handler{
+		dbAddress: db,
+	}
+}
+
 func (h *handler) SaveMetric(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		w.WriteHeader(http.StatusMethodNotAllowed)
@@ -286,14 +296,4 @@ func (h *handler) Ping(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		return
 	}
-}
-
-func New(db string) *handler {
-	return &handler{
-		dbAddress: db,
-	}
-}
-
-type handler struct {
-	dbAddress string
 }
