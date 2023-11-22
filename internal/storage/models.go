@@ -12,6 +12,6 @@ type Metric struct {
 	Value *float64 `json:"value,omitempty"` // значение метрики в случае передачи gauge
 }
 
-type harvester struct {
+type MetricCollection struct {
 	Metrics []Metric
 }

@@ -51,7 +51,7 @@ func (sh *SaverHelper) SaveMetrics() {
 		case <-sh.ctx.Done():
 			return
 		case <-ticker.C:
-			if err := sh.saver.Save(sh.ctx, storage.Harvester.Metrics); err != nil {
+			if err := sh.saver.Save(sh.ctx, storage.MetricStorage.Metrics); err != nil {
 				middleware.SugarLogger.Error(err.Error(), "save error")
 			}
 		}

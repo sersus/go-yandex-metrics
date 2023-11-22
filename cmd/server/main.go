@@ -10,11 +10,6 @@ import (
 	"go.uber.org/zap"
 )
 
-/*type saver interface {
-	Restore(ctx context.Context) ([]storage.Metric, error)
-	Save(ctx context.Context, metrics []storage.Metric) error
-}*/
-
 func main() {
 	logger, err := zap.NewDevelopment()
 	if err != nil {
@@ -39,32 +34,8 @@ func main() {
 		"addr", params.FlagRunAddr,
 	)
 
-	// init restorer
-	/*var saver saver
-	if params.FileStoragePath != "" && params.DatabaseAddress == "" {
-		saver = storager.NewFilesaver(params)
-	} else if params.DatabaseAddress != "" {
-		saver, err = storager.NewDBSaver(params)
-		if err != nil {
-			middleware.SugarLogger.Errorf(err.Error())
-		}
-	}*/
-	//saver := storager.InitSaver(params)
-
-	// restore previous metrics if needed
-	/*ctx := context.Background()
-	if params.Restore && (params.FileStoragePath != "" || params.DatabaseAddress != "") {
-		metrics, err := saver.Restore(ctx)
-		if err != nil {
-			middleware.SugarLogger.Error(err.Error(), "restore error")
-		}
-		storage.Harvester.Metrics = metrics
-		middleware.SugarLogger.Info("metrics restored")
-	}*/
-
 	// regularly save metrics if needed
 	if params.DatabaseAddress != "" || params.FileStoragePath != "" {
-		//go saveMetrics(ctx, saver, params.StoreInterval)
 		sh := storager.InitSaverHelper(params)
 		go sh.SaveMetrics()
 	}
@@ -74,17 +45,3 @@ func main() {
 		middleware.SugarLogger.Fatalw(err.Error(), "event", "start server")
 	}
 }
-
-/*func saveMetrics(ctx context.Context, saver saver, interval int) {
-	ticker := time.NewTicker(time.Duration(interval))
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-ticker.C:
-			if err := saver.Save(ctx, storage.Harvester.Metrics); err != nil {
-				middleware.SugarLogger.Error(err.Error(), "save error")
-			}
-		}
-	}
-}*/

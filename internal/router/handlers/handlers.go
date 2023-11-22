@@ -53,7 +53,7 @@ func (h *handler) SaveMetric(w http.ResponseWriter, r *http.Request) {
 		}
 		metric.Value = &v
 	}
-	err := storage.Harvester.Collect(metric)
+	err := storage.MetricStorage.Collect(metric)
 	if errors.Is(err, storage.ErrBadRequest) {
 		w.WriteHeader(http.StatusBadRequest)
 		return
@@ -93,7 +93,7 @@ func (h *handler) SaveMetricFromJSON(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err := storage.Harvester.Collect(metric)
+	err := storage.MetricStorage.Collect(metric)
 	if errors.Is(err, storage.ErrBadRequest) {
 		w.WriteHeader(http.StatusBadRequest)
 		return
@@ -103,7 +103,7 @@ func (h *handler) SaveMetricFromJSON(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resultJSON, err := storage.Harvester.GetMetricJSON(metric.ID)
+	resultJSON, err := storage.MetricStorage.GetMetricJSON(metric.ID)
 	if errors.Is(err, storage.ErrBadRequest) {
 		w.WriteHeader(http.StatusBadRequest)
 		return
@@ -149,7 +149,7 @@ func (h *handler) SaveListMetricsFromJSON(w http.ResponseWriter, r *http.Request
 			return
 		}
 
-		err := storage.Harvester.Collect(metric)
+		err := storage.MetricStorage.Collect(metric)
 		if errors.Is(err, storage.ErrBadRequest) {
 			w.WriteHeader(http.StatusBadRequest)
 			return
@@ -159,7 +159,7 @@ func (h *handler) SaveListMetricsFromJSON(w http.ResponseWriter, r *http.Request
 			return
 		}
 
-		resultJSON, err := storage.Harvester.GetMetricJSON(metric.ID)
+		resultJSON, err := storage.MetricStorage.GetMetricJSON(metric.ID)
 		if errors.Is(err, storage.ErrBadRequest) {
 			w.WriteHeader(http.StatusBadRequest)
 			return
@@ -194,7 +194,7 @@ func (h *handler) GetMetricFromJSON(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resultJSON, err := storage.Harvester.GetMetricJSON(metric.ID)
+	resultJSON, err := storage.MetricStorage.GetMetricJSON(metric.ID)
 	if errors.Is(err, storage.ErrBadRequest) {
 		w.WriteHeader(http.StatusBadRequest)
 		return
@@ -225,7 +225,7 @@ func (h *handler) GetMetric(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	value, err := storage.Harvester.GetMetric(metricName)
+	value, err := storage.MetricStorage.GetMetric(metricName)
 	if errors.Is(err, storage.ErrNotFound) {
 		w.WriteHeader(http.StatusNotFound)
 		return
@@ -258,11 +258,11 @@ func (h *handler) ShowMetrics(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	page := ""
-	for _, n := range storage.Harvester.GetAvailableMetrics() {
+	for _, n := range storage.MetricStorage.GetAvailableMetrics() {
 		page += fmt.Sprintf("<h1>	%s</h1>", n)
 	}
 	tmpl, _ := template.New("data").Parse("<h1>AVAILABLE METRICS</h1>{{range .}}<h3>{{ .}}</h3>{{end}}")
-	if err := tmpl.Execute(w, storage.Harvester.GetAvailableMetrics()); err != nil {
+	if err := tmpl.Execute(w, storage.MetricStorage.GetAvailableMetrics()); err != nil {
 		return
 	}
 	w.Header().Set("content-type", "Content-Type: text/html; charset=utf-8")

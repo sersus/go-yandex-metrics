@@ -100,7 +100,7 @@ func TestSaveMetric(t *testing.T) {
 			assert.NoError(t, err, "error making HTTP request")
 			assert.Equal(t, resp.StatusCode(), tt.expectedCode)
 
-			value, err := storage.Harvester.GetMetric(tt.mName)
+			value, err := storage.MetricStorage.GetMetric(tt.mName)
 			if err != nil {
 				assert.EqualError(t, err, tt.expectedError.Error())
 			} else {
@@ -191,7 +191,7 @@ func TestSaveMetricFromJSON(t *testing.T) {
 			assert.NoError(t, err, "error making HTTP request")
 			assert.Equal(t, resp.StatusCode(), tt.expectedCode)
 
-			value, err := storage.Harvester.GetMetricJSON(tt.mName)
+			value, err := storage.MetricStorage.GetMetricJSON(tt.mName)
 			if err != nil {
 				assert.EqualError(t, err, tt.expectedError.Error())
 			} else {

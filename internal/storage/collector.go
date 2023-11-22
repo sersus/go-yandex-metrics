@@ -11,17 +11,17 @@ var (
 	ErrNotFound       = errors.New("not found")
 )
 
-var Harvester = harvester{
+var MetricStorage = MetricCollection{
 	Metrics: make([]Metric, 0),
 }
 
-func (h *harvester) Collect(metric Metric) error {
+func (mc *MetricCollection) Collect(metric Metric) error {
 	if (metric.Delta != nil && *metric.Delta < 0) || (metric.Value != nil && *metric.Value < 0) {
 		return ErrBadRequest
 	}
 	switch metric.MType {
 	case Counter:
-		v, err := h.GetMetric(metric.ID)
+		v, err := mc.GetMetric(metric.ID)
 		if err != nil {
 			if !errors.Is(err, ErrNotFound) {
 				return err
@@ -30,18 +30,18 @@ func (h *harvester) Collect(metric Metric) error {
 		if v.Delta != nil {
 			*metric.Delta += *v.Delta
 		}
-		h.UpsertMetric(metric)
+		mc.UpsertMetric(metric)
 
 	case Gauge:
-		h.UpsertMetric(metric)
+		mc.UpsertMetric(metric)
 	default:
 		return ErrNotImplemented
 	}
 	return nil
 }
 
-func (h *harvester) GetMetric(metricName string) (Metric, error) {
-	for _, m := range h.Metrics {
+func (mc *MetricCollection) GetMetric(metricName string) (Metric, error) {
+	for _, m := range mc.Metrics {
 		if m.ID == metricName {
 			return m, nil
 		}
@@ -49,8 +49,8 @@ func (h *harvester) GetMetric(metricName string) (Metric, error) {
 	return Metric{}, ErrNotFound
 }
 
-func (h *harvester) GetMetricJSON(metricName string) ([]byte, error) {
-	for _, m := range h.Metrics {
+func (mc *MetricCollection) GetMetricJSON(metricName string) ([]byte, error) {
+	for _, m := range mc.Metrics {
 		if m.ID == metricName {
 			resultJSON, err := json.Marshal(m)
 			if err != nil {
@@ -62,20 +62,20 @@ func (h *harvester) GetMetricJSON(metricName string) ([]byte, error) {
 	return nil, ErrNotFound
 }
 
-func (h *harvester) GetAvailableMetrics() []string {
+func (mc *MetricCollection) GetAvailableMetrics() []string {
 	names := make([]string, 0)
-	for _, m := range h.Metrics {
+	for _, m := range mc.Metrics {
 		names = append(names, m.ID)
 	}
 	return names
 }
 
-func (h *harvester) UpsertMetric(metric Metric) {
-	for i, m := range h.Metrics {
+func (mc *MetricCollection) UpsertMetric(metric Metric) {
+	for i, m := range mc.Metrics {
 		if m.ID == metric.ID {
-			h.Metrics[i] = metric
+			mc.Metrics[i] = metric
 			return
 		}
 	}
-	h.Metrics = append(h.Metrics, metric)
+	mc.Metrics = append(mc.Metrics, metric)
 }

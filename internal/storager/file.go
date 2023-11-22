@@ -71,7 +71,7 @@ func NewFilesaver(params *config.Options, ctx context.Context) *filesaver {
 		if err != nil {
 			middleware.SugarLogger.Error(err.Error(), "restore from file error")
 		}
-		storage.Harvester.Metrics = metrics
+		storage.MetricStorage.Metrics = metrics
 		middleware.SugarLogger.Info("metrics restored from file")
 	}
 

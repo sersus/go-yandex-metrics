@@ -58,12 +58,12 @@ func (a *Harvest) Harvest() {
 	a.h.Collect(storage.Metric{ID: "RandomValue", MType: storage.Gauge, Value: PtrFloat64(float64(rand.Int()))})
 	a.h.Collect(storage.Metric{ID: "LastGC", MType: storage.Gauge, Value: PtrFloat64(float64(metrics.LastGC))})
 
-	cnt, _ := storage.Harvester.GetMetric("PollCount")
+	cnt, _ := storage.MetricStorage.GetMetric("PollCount")
 	counter := int64(0)
 	if cnt.Delta != nil {
 		counter = *cnt.Delta + 1
 	}
-	storage.Harvester.Collect(storage.Metric{ID: "PollCount", MType: storage.Counter, Delta: PtrInt64(counter)})
+	storage.MetricStorage.Collect(storage.Metric{ID: "PollCount", MType: storage.Counter, Delta: PtrInt64(counter)})
 }
 
 func New(harvester Harvester) *Harvest {
@@ -102,7 +102,7 @@ func (s *Sender) SendMetricsToServer() error {
 		SetHeader("Content-Encoding", "gzip")
 
 	for {
-		for _, v := range storage.Harvester.Metrics {
+		for _, v := range storage.MetricStorage.Metrics {
 			jsonInput, _ := json.Marshal(v)
 			if err := s.sendRequest(req, string(jsonInput)); err != nil {
 				return fmt.Errorf("error while sending agent request for counter metric: %w", err)

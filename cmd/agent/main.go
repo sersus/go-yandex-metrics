@@ -17,7 +17,7 @@ func main() {
 
 	errs, _ := errgroup.WithContext(ctx)
 	errs.Go(func() error {
-		h := harvester.New(&storage.Harvester)
+		h := harvester.New(&storage.MetricStorage)
 		for {
 			h.Harvest()
 			time.Sleep(time.Duration(params.PollInterval) * time.Second)
