@@ -7,6 +7,7 @@ import (
 	"os"
 
 	"github.com/sersus/go-yandex-metrics/internal/config"
+	"github.com/sersus/go-yandex-metrics/internal/middleware"
 	"github.com/sersus/go-yandex-metrics/internal/storage"
 )
 
@@ -63,6 +64,16 @@ func (m *filesaver) Save(ctx context.Context, metrics []storage.Metric) error {
 	return saveError
 }
 
-func NewFilesaver(params *config.Options) *filesaver {
-	return &filesaver{fileName: params.FileStoragePath}
+func NewFilesaver(params *config.Options, ctx context.Context) *filesaver {
+	fs := &filesaver{fileName: params.FileStoragePath}
+	if params.Restore {
+		metrics, err := fs.Restore(ctx)
+		if err != nil {
+			middleware.SugarLogger.Error(err.Error(), "restore from file error")
+		}
+		storage.Harvester.Metrics = metrics
+		middleware.SugarLogger.Info("metrics restored from file")
+	}
+
+	return fs
 }

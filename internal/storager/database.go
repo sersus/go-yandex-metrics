@@ -12,6 +12,7 @@ import (
 	"github.com/lib/pq"
 
 	"github.com/sersus/go-yandex-metrics/internal/config"
+	"github.com/sersus/go-yandex-metrics/internal/middleware"
 	"github.com/sersus/go-yandex-metrics/internal/storage"
 )
 
@@ -138,18 +139,27 @@ func (m *dbsaver) init(ctx context.Context) error {
 	return nil
 }
 
-func NewDBSaver(params *config.Options) (*dbsaver, error) {
-	ctx := context.Background()
+func NewDBSaver(params *config.Options, ctx context.Context) (*dbsaver, error) {
+	//ctx := context.Background()
 	db, err := sql.Open("pgx", params.DatabaseAddress)
 	if err != nil {
 		return nil, err
 	}
 
-	m := dbsaver{
+	dbs := dbsaver{
 		db: db,
 	}
-	if err := m.init(ctx); err != nil {
+	if err := dbs.init(ctx); err != nil {
 		return nil, err
 	}
-	return &m, nil
+	if params.Restore {
+		metrics, err := dbs.Restore(ctx)
+		if err != nil {
+			middleware.SugarLogger.Error(err.Error(), "restore from database error")
+		}
+		storage.Harvester.Metrics = metrics
+		middleware.SugarLogger.Info("metrics restored from database")
+	}
+
+	return &dbs, nil
 }

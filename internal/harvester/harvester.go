@@ -1,9 +1,19 @@
 package harvester
 
 import (
+	"bytes"
+	"compress/gzip"
+	"encoding/json"
+	"fmt"
+	"log"
 	"math/rand"
 	"runtime"
+	"time"
 
+	"github.com/avast/retry-go"
+	"github.com/go-resty/resty/v2"
+
+	"github.com/sersus/go-yandex-metrics/internal/config"
 	"github.com/sersus/go-yandex-metrics/internal/storage"
 )
 
@@ -68,4 +78,65 @@ func PtrFloat64(f float64) *float64 {
 
 func PtrInt64(i int64) *int64 {
 	return &i
+}
+
+type Sender struct {
+	client        *resty.Client
+	reportTimeout time.Duration
+	addr          string
+}
+
+func InitSender(opts *config.Options) *Sender {
+	s := &Sender{
+		client:        resty.New(),
+		reportTimeout: time.Duration(opts.PollInterval),
+		addr:          opts.FlagRunAddr,
+	}
+	return s
+}
+
+func (s *Sender) SendMetricsToServer() error {
+	req := s.client.R().
+		SetHeader("Content-Type", "application/json").
+		SetHeader("Accept-Encoding", "gzip").
+		SetHeader("Content-Encoding", "gzip")
+
+	for {
+		for _, v := range storage.Harvester.Metrics {
+			jsonInput, _ := json.Marshal(v)
+			if err := s.sendRequest(req, string(jsonInput)); err != nil {
+				return fmt.Errorf("error while sending agent request for counter metric: %w", err)
+			}
+		}
+		time.Sleep(s.reportTimeout * time.Second)
+	}
+}
+
+func (s *Sender) sendRequest(req *resty.Request, jsonInput string) error {
+	buf := bytes.NewBuffer(nil)
+	zb := gzip.NewWriter(buf)
+	if _, err := zb.Write([]byte(jsonInput)); err != nil {
+		return fmt.Errorf("error while write json input: %w", err)
+	}
+	if err := zb.Close(); err != nil {
+		return fmt.Errorf("error while trying to close writer: %w", err)
+	}
+
+	err := retry.Do(
+		func() error {
+			var err error
+			if _, err = req.SetBody(buf).Post(fmt.Sprintf("http://%s/update/", s.addr)); err != nil {
+				return fmt.Errorf("error while trying to create post request: %w", err)
+			}
+			return nil
+		},
+		retry.Attempts(10),
+		retry.OnRetry(func(n uint, err error) {
+			log.Printf("Retrying request after error: %v", err)
+		}),
+	)
+	if err != nil {
+		return fmt.Errorf("error while trying to connect to server: %w", err)
+	}
+	return nil
 }

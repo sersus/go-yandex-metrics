@@ -1,22 +1,19 @@
 package main
 
 import (
-	"context"
 	"net/http"
-	"time"
 
 	"github.com/sersus/go-yandex-metrics/internal/config"
 	"github.com/sersus/go-yandex-metrics/internal/middleware"
 	"github.com/sersus/go-yandex-metrics/internal/router/router"
-	"github.com/sersus/go-yandex-metrics/internal/storage"
 	"github.com/sersus/go-yandex-metrics/internal/storager"
 	"go.uber.org/zap"
 )
 
-type saver interface {
+/*type saver interface {
 	Restore(ctx context.Context) ([]storage.Metric, error)
 	Save(ctx context.Context, metrics []storage.Metric) error
-}
+}*/
 
 func main() {
 	logger, err := zap.NewDevelopment()
@@ -43,7 +40,7 @@ func main() {
 	)
 
 	// init restorer
-	var saver saver
+	/*var saver saver
 	if params.FileStoragePath != "" && params.DatabaseAddress == "" {
 		saver = storager.NewFilesaver(params)
 	} else if params.DatabaseAddress != "" {
@@ -51,10 +48,11 @@ func main() {
 		if err != nil {
 			middleware.SugarLogger.Errorf(err.Error())
 		}
-	}
+	}*/
+	//saver := storager.InitSaver(params)
 
 	// restore previous metrics if needed
-	ctx := context.Background()
+	/*ctx := context.Background()
 	if params.Restore && (params.FileStoragePath != "" || params.DatabaseAddress != "") {
 		metrics, err := saver.Restore(ctx)
 		if err != nil {
@@ -62,11 +60,13 @@ func main() {
 		}
 		storage.Harvester.Metrics = metrics
 		middleware.SugarLogger.Info("metrics restored")
-	}
+	}*/
 
 	// regularly save metrics if needed
 	if params.DatabaseAddress != "" || params.FileStoragePath != "" {
-		go saveMetrics(ctx, saver, params.StoreInterval)
+		//go saveMetrics(ctx, saver, params.StoreInterval)
+		sh := storager.InitSaverHelper(params)
+		go sh.SaveMetrics()
 	}
 
 	// run server
@@ -75,7 +75,7 @@ func main() {
 	}
 }
 
-func saveMetrics(ctx context.Context, saver saver, interval int) {
+/*func saveMetrics(ctx context.Context, saver saver, interval int) {
 	ticker := time.NewTicker(time.Duration(interval))
 	for {
 		select {
@@ -87,4 +87,4 @@ func saveMetrics(ctx context.Context, saver saver, interval int) {
 			}
 		}
 	}
-}
+}*/
