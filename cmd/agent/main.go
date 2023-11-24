@@ -2,44 +2,32 @@ package main
 
 import (
 	"context"
-	"flag"
+	"log"
 	"time"
 
-	"github.com/go-resty/resty/v2"
 	"github.com/sersus/go-yandex-metrics/internal/config"
 	"github.com/sersus/go-yandex-metrics/internal/harvester"
 	"github.com/sersus/go-yandex-metrics/internal/storage"
 	"golang.org/x/sync/errgroup"
 )
 
-var options config.Options
-
-func init() {
-	flag.StringVar(&options.Address, "a", "localhost:8080", "Server listening address")
-	flag.IntVar(&options.ReportInterval, "r", 10, "report interval")
-	flag.IntVar(&options.PollInterval, "p", 2, "poll interval")
-}
-
 func main() {
-	config.ParceFlags(&options)
-	metricsCollector := harvester.NewHarvester(&storage.MetricsStorage)
-
+	params := config.Init(config.WithPollInterval(), config.WithReportInterval(), config.WithAddr())
 	ctx := context.Background()
 
 	errs, _ := errgroup.WithContext(ctx)
 	errs.Go(func() error {
-		if err := harvester.PerformCollect(metricsCollector, time.Duration(options.PollInterval)); err != nil {
-			panic(err)
+		h := harvester.New(&storage.MetricStorage)
+		for {
+			h.Harvest()
+			time.Sleep(time.Duration(params.PollInterval) * time.Second)
 		}
-		return nil
 	})
 
-	reportTicker := time.NewTicker(time.Second * 10)
-	client := resty.New()
-	defer reportTicker.Stop()
+	sender := harvester.InitSender(params)
 	errs.Go(func() error {
-		if err := harvester.SendMetricsToServer(client, &options); err != nil {
-			panic(err)
+		if err := sender.SendMetricsToServer(); err != nil {
+			log.Fatalln(err)
 		}
 		return nil
 	})

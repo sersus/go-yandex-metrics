@@ -1,28 +1,14 @@
 package main
 
 import (
-	"flag"
 	"net/http"
 
-	"github.com/go-chi/chi/v5"
 	"github.com/sersus/go-yandex-metrics/internal/config"
-	"github.com/sersus/go-yandex-metrics/internal/handlers"
 	"github.com/sersus/go-yandex-metrics/internal/middleware"
-
-	"github.com/sersus/go-yandex-metrics/internal/storage"
+	"github.com/sersus/go-yandex-metrics/internal/router/router"
+	"github.com/sersus/go-yandex-metrics/internal/storager"
 	"go.uber.org/zap"
 )
-
-var options config.ServerOptions
-
-var metricsFromFile = storage.MetricsStorage
-
-func init() {
-	flag.StringVar(&options.Address, "a", "localhost:8080", "Server listening address")
-	flag.IntVar(&options.StoreInterval, "i", 300, "store interval")
-	flag.StringVar(&options.FileStoragePath, "f", "/tmp/metrics-db.json", "file path")
-	flag.BoolVar(&options.Restore, "r", true, "restore metrics from file on start")
-}
 
 func main() {
 	logger, err := zap.NewDevelopment()
@@ -33,29 +19,29 @@ func main() {
 
 	middleware.SugarLogger = *logger.Sugar()
 
-	config.ParceServerFlags(&options)
-	metricsHandler := &handlers.MetricsHandler{}
-	r := chi.NewRouter()
-	r.Use(middleware.RequestLogger)
-	r.Use(middleware.Compress)
-	r.Post("/update/", metricsHandler.SaveMetricFromJSON)
-	r.Post("/value/", metricsHandler.GetMetricFromJSON)
-	r.Post("/update/*", metricsHandler.SendMetric)
-	r.Get("/value/*", metricsHandler.GetMetric)
-	r.Get("/", metricsHandler.ShowMetrics)
+	params := config.Init(
+		config.WithAddr(),
+		config.WithStoreInterval(),
+		config.WithFileStoragePath(),
+		config.WithRestore(),
+		config.WithDatabase(),
+	)
+
+	r := router.New(*params)
 
 	middleware.SugarLogger.Infow(
 		"Starting server",
-		"addr", options.Address,
+		"addr", params.FlagRunAddr,
 	)
-	if options.Restore {
-		if err := metricsFromFile.Restore(options.FileStoragePath); err != nil {
-			middleware.SugarLogger.Error(err.Error(), "restore error")
-		}
+
+	// regularly save metrics if needed
+	if params.DatabaseAddress != "" || params.FileStoragePath != "" {
+		sh := storager.InitSaverHelper(params)
+		go sh.SaveMetrics()
 	}
 
-	go storage.SaveByInterval(&metricsFromFile, options.FileStoragePath, options.StoreInterval)
-	if err := http.ListenAndServe(options.Address, r); err != nil {
+	// run server
+	if err := http.ListenAndServe(params.FlagRunAddr, r); err != nil {
 		middleware.SugarLogger.Fatalw(err.Error(), "event", "start server")
 	}
 }

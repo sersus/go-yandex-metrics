@@ -3,6 +3,7 @@ package harvester
 import (
 	"bytes"
 	"compress/gzip"
+	"encoding/json"
 	"fmt"
 	"log"
 	"math/rand"
@@ -11,93 +12,107 @@ import (
 
 	"github.com/avast/retry-go"
 	"github.com/go-resty/resty/v2"
+
 	"github.com/sersus/go-yandex-metrics/internal/config"
 	"github.com/sersus/go-yandex-metrics/internal/storage"
 )
 
-type harvester struct {
-	storage *storage.MemStorage
+type Harvest struct {
+	h Harvester
 }
 
-func (h *harvester) Collect(metrics *runtime.MemStats) {
-	h.storage.Metrics["Alloc"] = storage.Metric{Value: float64(metrics.Alloc), MetricType: storage.Gauge}
-	h.storage.Metrics["BuckHashSys"] = storage.Metric{Value: float64(metrics.BuckHashSys), MetricType: storage.Gauge}
-	h.storage.Metrics["Frees"] = storage.Metric{Value: float64(metrics.Frees), MetricType: storage.Gauge}
-	h.storage.Metrics["GCCPUFraction"] = storage.Metric{Value: metrics.GCCPUFraction, MetricType: storage.Gauge}
-	h.storage.Metrics["GCSys"] = storage.Metric{Value: float64(metrics.GCSys), MetricType: storage.Gauge}
-	h.storage.Metrics["HeapAlloc"] = storage.Metric{Value: float64(metrics.HeapAlloc), MetricType: storage.Gauge}
-	h.storage.Metrics["HeapIdle"] = storage.Metric{Value: float64(metrics.HeapIdle), MetricType: storage.Gauge}
-	h.storage.Metrics["HeapInuse"] = storage.Metric{Value: float64(metrics.HeapInuse), MetricType: storage.Gauge}
-	h.storage.Metrics["HeapObjects"] = storage.Metric{Value: float64(metrics.HeapObjects), MetricType: storage.Gauge}
-	h.storage.Metrics["HeapReleased"] = storage.Metric{Value: float64(metrics.HeapReleased), MetricType: storage.Gauge}
-	h.storage.Metrics["HeapSys"] = storage.Metric{Value: float64(metrics.HeapSys), MetricType: storage.Gauge}
-	h.storage.Metrics["Lookups"] = storage.Metric{Value: float64(metrics.Lookups), MetricType: storage.Gauge}
-	h.storage.Metrics["MCacheInuse"] = storage.Metric{Value: float64(metrics.MCacheInuse), MetricType: storage.Gauge}
-	h.storage.Metrics["MCacheSys"] = storage.Metric{Value: float64(metrics.MCacheSys), MetricType: storage.Gauge}
-	h.storage.Metrics["MSpanInuse"] = storage.Metric{Value: float64(metrics.MSpanInuse), MetricType: storage.Gauge}
-	h.storage.Metrics["MSpanSys"] = storage.Metric{Value: float64(metrics.MSpanSys), MetricType: storage.Gauge}
-	h.storage.Metrics["Mallocs"] = storage.Metric{Value: float64(metrics.Mallocs), MetricType: storage.Gauge}
-	h.storage.Metrics["NextGC"] = storage.Metric{Value: float64(metrics.NextGC), MetricType: storage.Gauge}
-	h.storage.Metrics["LastGC"] = storage.Metric{Value: float64(metrics.LastGC), MetricType: storage.Gauge}
-	h.storage.Metrics["NumForcedGC"] = storage.Metric{Value: float64(metrics.NumForcedGC), MetricType: storage.Gauge}
-	h.storage.Metrics["NumGC"] = storage.Metric{Value: float64(metrics.NumGC), MetricType: storage.Gauge}
-	h.storage.Metrics["OtherSys"] = storage.Metric{Value: float64(metrics.OtherSys), MetricType: storage.Gauge}
-	h.storage.Metrics["PauseTotalNs"] = storage.Metric{Value: float64(metrics.PauseTotalNs), MetricType: storage.Gauge}
-	h.storage.Metrics["StackInuse"] = storage.Metric{Value: float64(metrics.StackInuse), MetricType: storage.Gauge}
-	h.storage.Metrics["StackSys"] = storage.Metric{Value: float64(metrics.StackSys), MetricType: storage.Gauge}
-	h.storage.Metrics["Sys"] = storage.Metric{Value: float64(metrics.Sys), MetricType: storage.Gauge}
-	h.storage.Metrics["TotalAlloc"] = storage.Metric{Value: float64(metrics.TotalAlloc), MetricType: storage.Gauge}
-	h.storage.Metrics["RandomValue"] = storage.Metric{Value: float64(rand.Int()), MetricType: storage.Gauge}
+type Harvester interface {
+	Collect(json storage.Metric) error
+}
 
-	var cnt int64
-	if h.storage.Metrics["PollCount"].Value != nil {
-		cnt = h.storage.Metrics["PollCount"].Value.(int64) + 1
+func (a *Harvest) Harvest() {
+	metrics := runtime.MemStats{}
+	runtime.ReadMemStats(&metrics)
+
+	a.h.Collect(storage.Metric{ID: "Alloc", MType: storage.Gauge, Value: PtrFloat64(float64(metrics.Alloc))})
+	a.h.Collect(storage.Metric{ID: "BuckHashSys", MType: storage.Gauge, Value: PtrFloat64(float64(metrics.BuckHashSys))})
+	a.h.Collect(storage.Metric{ID: "Frees", MType: storage.Gauge, Value: PtrFloat64(float64(metrics.Frees))})
+	a.h.Collect(storage.Metric{ID: "GCCPUFraction", MType: storage.Gauge, Value: &metrics.GCCPUFraction})
+	a.h.Collect(storage.Metric{ID: "GCSys", MType: storage.Gauge, Value: PtrFloat64(float64(metrics.GCSys))})
+	a.h.Collect(storage.Metric{ID: "HeapAlloc", MType: storage.Gauge, Value: PtrFloat64(float64(metrics.HeapAlloc))})
+	a.h.Collect(storage.Metric{ID: "HeapIdle", MType: storage.Gauge, Value: PtrFloat64(float64(metrics.HeapIdle))})
+	a.h.Collect(storage.Metric{ID: "HeapInuse", MType: storage.Gauge, Value: PtrFloat64(float64(metrics.HeapInuse))})
+	a.h.Collect(storage.Metric{ID: "HeapObjects", MType: storage.Gauge, Value: PtrFloat64(float64(metrics.HeapObjects))})
+	a.h.Collect(storage.Metric{ID: "HeapReleased", MType: storage.Gauge, Value: PtrFloat64(float64(metrics.HeapReleased))})
+	a.h.Collect(storage.Metric{ID: "HeapSys", MType: storage.Gauge, Value: PtrFloat64(float64(metrics.HeapSys))})
+	a.h.Collect(storage.Metric{ID: "Lookups", MType: storage.Gauge, Value: PtrFloat64(float64(metrics.Lookups))})
+	a.h.Collect(storage.Metric{ID: "MCacheInuse", MType: storage.Gauge, Value: PtrFloat64(float64(metrics.MCacheInuse))})
+	a.h.Collect(storage.Metric{ID: "MCacheSys", MType: storage.Gauge, Value: PtrFloat64(float64(metrics.MCacheSys))})
+	a.h.Collect(storage.Metric{ID: "MSpanInuse", MType: storage.Gauge, Value: PtrFloat64(float64(metrics.MSpanInuse))})
+	a.h.Collect(storage.Metric{ID: "MSpanSys", MType: storage.Gauge, Value: PtrFloat64(float64(metrics.MSpanSys))})
+	a.h.Collect(storage.Metric{ID: "Mallocs", MType: storage.Gauge, Value: PtrFloat64(float64(metrics.Mallocs))})
+	a.h.Collect(storage.Metric{ID: "NextGC", MType: storage.Gauge, Value: PtrFloat64(float64(metrics.NextGC))})
+	a.h.Collect(storage.Metric{ID: "NumForcedGC", MType: storage.Gauge, Value: PtrFloat64(float64(metrics.NumForcedGC))})
+	a.h.Collect(storage.Metric{ID: "NumGC", MType: storage.Gauge, Value: PtrFloat64(float64(metrics.NumGC))})
+	a.h.Collect(storage.Metric{ID: "OtherSys", MType: storage.Gauge, Value: PtrFloat64(float64(metrics.OtherSys))})
+	a.h.Collect(storage.Metric{ID: "PauseTotalNs", MType: storage.Gauge, Value: PtrFloat64(float64(metrics.PauseTotalNs))})
+	a.h.Collect(storage.Metric{ID: "StackInuse", MType: storage.Gauge, Value: PtrFloat64(float64(metrics.StackInuse))})
+	a.h.Collect(storage.Metric{ID: "StackSys", MType: storage.Gauge, Value: PtrFloat64(float64(metrics.StackSys))})
+	a.h.Collect(storage.Metric{ID: "Sys", MType: storage.Gauge, Value: PtrFloat64(float64(metrics.Sys))})
+	a.h.Collect(storage.Metric{ID: "TotalAlloc", MType: storage.Gauge, Value: PtrFloat64(float64(metrics.TotalAlloc))})
+	a.h.Collect(storage.Metric{ID: "RandomValue", MType: storage.Gauge, Value: PtrFloat64(float64(rand.Int()))})
+	a.h.Collect(storage.Metric{ID: "LastGC", MType: storage.Gauge, Value: PtrFloat64(float64(metrics.LastGC))})
+
+	cnt, _ := storage.MetricStorage.GetMetric("PollCount")
+	counter := int64(0)
+	if cnt.Delta != nil {
+		counter = *cnt.Delta + 1
 	}
-	h.storage.Metrics["PollCount"] = storage.Metric{Value: cnt, MetricType: storage.Counter}
+	storage.MetricStorage.Collect(storage.Metric{ID: "PollCount", MType: storage.Counter, Delta: PtrInt64(counter)})
 }
 
-func NewHarvester(ms *storage.MemStorage) *harvester {
-	return &harvester{ms}
-}
-
-type Iharvester interface {
-	Collect(metrics *runtime.MemStats)
-}
-
-func PerformCollect(h Iharvester, pollInterval time.Duration) error {
-	for {
-		metrics := runtime.MemStats{}
-		runtime.ReadMemStats(&metrics)
-		h.Collect(&metrics)
-		time.Sleep(time.Second * pollInterval)
+func New(harvester Harvester) *Harvest {
+	return &Harvest{
+		h: harvester,
 	}
 }
 
-func SendMetricsToServer(client *resty.Client, options *config.Options) error {
-	req := client.R().
+func PtrFloat64(f float64) *float64 {
+	return &f
+}
+
+func PtrInt64(i int64) *int64 {
+	return &i
+}
+
+type Sender struct {
+	client        *resty.Client
+	reportTimeout time.Duration
+	addr          string
+}
+
+func InitSender(opts *config.Options) *Sender {
+	s := &Sender{
+		client:        resty.New(),
+		reportTimeout: time.Duration(opts.PollInterval),
+		addr:          opts.FlagRunAddr,
+	}
+	return s
+}
+
+func (s *Sender) SendMetricsToServer() error {
+	req := s.client.R().
 		SetHeader("Content-Type", "application/json").
 		SetHeader("Accept-Encoding", "gzip").
 		SetHeader("Content-Encoding", "gzip")
+
 	for {
-		for n, i := range storage.MetricsStorage.Metrics {
-			switch i.MetricType {
-			case storage.Counter:
-				jsonInput := fmt.Sprintf(`{"id":%q, "type":"counter", "delta": %d}`, n, i.Value)
-				if err := sendRequest(req, jsonInput, options.Address); err != nil {
-					return fmt.Errorf("error while sending agent request for counter metric: %w", err)
-				}
-			case storage.Gauge:
-				jsonInput := fmt.Sprintf(`{"id":%q, "type":"gauge", "value": %11f}`, n, i.Value)
-				if err := sendRequest(req, jsonInput, options.Address); err != nil {
-					return fmt.Errorf("error while sending agent request for gauge metric: %w", err)
-				}
+		for _, v := range storage.MetricStorage.Metrics {
+			jsonInput, _ := json.Marshal(v)
+			if err := s.sendRequest(req, string(jsonInput)); err != nil {
+				return fmt.Errorf("error while sending agent request for counter metric: %w", err)
 			}
 		}
-		time.Sleep(time.Second * time.Duration(options.ReportInterval))
+		time.Sleep(s.reportTimeout * time.Second)
 	}
 }
 
-func sendRequest(req *resty.Request, jsonInput string, addr string) error {
+func (s *Sender) sendRequest(req *resty.Request, jsonInput string) error {
 	buf := bytes.NewBuffer(nil)
 	zb := gzip.NewWriter(buf)
 	if _, err := zb.Write([]byte(jsonInput)); err != nil {
@@ -106,10 +121,11 @@ func sendRequest(req *resty.Request, jsonInput string, addr string) error {
 	if err := zb.Close(); err != nil {
 		return fmt.Errorf("error while trying to close writer: %w", err)
 	}
+
 	err := retry.Do(
 		func() error {
 			var err error
-			if _, err = req.SetBody(buf).Post(fmt.Sprintf("http://%s/update/", addr)); err != nil {
+			if _, err = req.SetBody(buf).Post(fmt.Sprintf("http://%s/update/", s.addr)); err != nil {
 				return fmt.Errorf("error while trying to create post request: %w", err)
 			}
 			return nil
