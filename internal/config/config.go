@@ -25,6 +25,16 @@ type Options struct {
 	StoreInterval   int
 	FileStoragePath string
 	Restore         bool
+	Key             string
+}
+
+func WithKey() Option {
+	return func(p *Options) {
+		flag.StringVar(&p.Key, "k", "", "key for using hash subscription")
+		if envKey := os.Getenv("KEY"); envKey != "" {
+			p.Key = envKey
+		}
+	}
 }
 
 func WithDatabase() Option {

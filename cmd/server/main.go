@@ -25,6 +25,7 @@ func main() {
 		config.WithFileStoragePath(),
 		config.WithRestore(),
 		config.WithDatabase(),
+		config.WithKey(),
 	)
 
 	r := router.New(*params)
