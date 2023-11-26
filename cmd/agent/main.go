@@ -12,7 +12,12 @@ import (
 )
 
 func main() {
-	params := config.Init(config.WithPollInterval(), config.WithReportInterval(), config.WithAddr())
+	params := config.Init(
+		config.WithPollInterval(),
+		config.WithReportInterval(),
+		config.WithAddr(),
+		config.WithKey(),
+	)
 	ctx := context.Background()
 
 	errs, _ := errgroup.WithContext(ctx)
