@@ -3,6 +3,7 @@ package harvester
 import (
 	"bytes"
 	"compress/gzip"
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -12,6 +13,9 @@ import (
 
 	"github.com/avast/retry-go"
 	"github.com/go-resty/resty/v2"
+	"github.com/shirou/gopsutil/v3/cpu"
+	"github.com/shirou/gopsutil/v3/mem"
+	"go.uber.org/zap"
 
 	"github.com/sersus/go-yandex-metrics/internal/config"
 	"github.com/sersus/go-yandex-metrics/internal/storage"
@@ -25,7 +29,13 @@ type Harvester interface {
 	Collect(json storage.Metric) error
 }
 
-func (a *Harvest) Harvest() {
+func New(harvester Harvester) *Harvest {
+	return &Harvest{
+		h: harvester,
+	}
+}
+
+func (a *Harvest) HarvestRuntime() {
 	metrics := runtime.MemStats{}
 	runtime.ReadMemStats(&metrics)
 
@@ -66,10 +76,12 @@ func (a *Harvest) Harvest() {
 	storage.MetricStorage.Collect(storage.Metric{ID: "PollCount", MType: storage.Counter, Delta: PtrInt64(counter)})
 }
 
-func New(harvester Harvester) *Harvest {
-	return &Harvest{
-		h: harvester,
-	}
+func (a *Harvest) HarvestGopsutil() {
+	v, _ := mem.VirtualMemory()
+	cp, _ := cpu.Percent(0, false)
+	a.h.Collect(storage.Metric{ID: "FreeMemory", MType: "gauge", Value: PtrFloat64(float64(v.Free))})
+	a.h.Collect(storage.Metric{ID: "TotalMemory", MType: "gauge", Value: PtrFloat64(float64(v.Total))})
+	a.h.Collect(storage.Metric{ID: "CPUutilization1", MType: "gauge", Value: PtrFloat64(cp[0])})
 }
 
 func PtrFloat64(f float64) *float64 {
@@ -84,18 +96,49 @@ type Sender struct {
 	client        *resty.Client
 	reportTimeout time.Duration
 	addr          string
+	log           zap.SugaredLogger
+	rateLimit     int
 }
 
-func InitSender(opts *config.Options) *Sender {
+func InitSender(opts *config.Options, log zap.SugaredLogger) *Sender {
 	s := &Sender{
 		client:        resty.New(),
 		reportTimeout: time.Duration(opts.PollInterval),
 		addr:          opts.FlagRunAddr,
+		log:           log,
+		rateLimit:     opts.RateLimit,
 	}
 	return s
 }
 
-func (s *Sender) SendMetricsToServer() error {
+func (s *Sender) SendMetrics(ctx context.Context) error {
+	numRequests := make(chan struct{}, s.rateLimit)
+	reportTicker := time.NewTicker(time.Duration(s.reportTimeout) * time.Second)
+	for {
+		select {
+		case <-ctx.Done():
+			return nil
+		// check if time to send metrics on server
+		case <-reportTicker.C:
+			select {
+			case <-ctx.Done():
+				return nil
+			// check if the rate limit is exceeded
+			case numRequests <- struct{}{}:
+				s.log.Info("metrics sent on server")
+				if err := s.sendMetricsToServer(); err != nil {
+					return err
+				}
+			default:
+				s.log.Info("rate limit is exceeded")
+			}
+		}
+		// release the request pool for one
+		<-numRequests
+	}
+}
+
+func (s *Sender) sendMetricsToServer() error {
 	req := s.client.R().
 		SetHeader("Content-Type", "application/json").
 		SetHeader("Accept-Encoding", "gzip").
