@@ -125,16 +125,17 @@ func (s *Sender) SendMetrics(ctx context.Context) error {
 				return nil
 			// check if the rate limit is exceeded
 			case numRequests <- struct{}{}:
-				s.log.Info("metrics sent on server")
-				if err := s.sendMetricsToServer(); err != nil {
-					return err
-				}
+				go func() {
+					defer func() { <-numRequests }()
+					s.log.Info("metrics sent on server")
+					if err := s.sendMetricsToServer(); err != nil {
+						log.Printf("error while sending metrics: %v", err)
+					}
+				}()
 			default:
 				s.log.Info("rate limit is exceeded")
 			}
 		}
-		// release the request pool for one
-		<-numRequests
 	}
 }
 
