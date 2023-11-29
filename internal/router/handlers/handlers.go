@@ -3,6 +3,7 @@ package handlers
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"database/sql"
 	"encoding/json"
 	"errors"
@@ -21,11 +22,13 @@ import (
 
 type handler struct {
 	dbAddress string
+	key       string
 }
 
-func New(db string) *handler {
+func New(db string, key string) *handler {
 	return &handler{
 		dbAddress: db,
+		key:       key,
 	}
 }
 
@@ -93,6 +96,20 @@ func (h *handler) SaveMetricFromJSON(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	headerHash := r.Header.Get("HashSHA256")
+	want := h.getHash(buf.Bytes())
+	if headerHash != "" {
+		w.Header().Set("HashSHA256", want)
+	}
+
+	if !h.checkSubscription(want, headerHash) {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	if headerHash != "" {
+		w.Header().Set("HashSHA256", headerHash)
+	}
+
 	var metric storage.Metric
 	if err := json.Unmarshal(buf.Bytes(), &metric); err != nil {
 		w.WriteHeader(http.StatusBadRequest)
@@ -152,6 +169,20 @@ func (h *handler) SaveListMetricsFromJSON(w http.ResponseWriter, r *http.Request
 		return
 	}
 
+	headerHash := r.Header.Get("HashSHA256")
+	want := h.getHash(buf.Bytes())
+	if headerHash != "" {
+		w.Header().Set("HashSHA256", want)
+	}
+
+	if !h.checkSubscription(want, headerHash) {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	if headerHash != "" {
+		w.Header().Set("HashSHA256", headerHash)
+	}
+
 	var results []byte
 	for _, metric := range metrics {
 		if metric.ID == "" {
@@ -193,7 +224,18 @@ func (h *handler) SaveListMetricsFromJSON(w http.ResponseWriter, r *http.Request
 
 func (h *handler) GetMetricFromJSON(w http.ResponseWriter, r *http.Request) {
 	var buf bytes.Buffer
+	w.Header().Set("content-type", "application/json")
 	if _, err := buf.ReadFrom(r.Body); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	headerHash := r.Header.Get("HashSHA256")
+	want := h.getHash(buf.Bytes())
+	if headerHash != "" {
+		w.Header().Set("HashSHA256", want)
+	}
+	if !h.checkSubscription(want, headerHash) {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
@@ -296,4 +338,21 @@ func (h *handler) Ping(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		return
 	}
+}
+
+func (h *handler) checkSubscription(want, header string) bool {
+	if h.key != "" && len(want) != 0 && header != "" {
+		//h := hmac.New(sha256.New, []byte(h.key))
+		//h.Write(body)
+		//dst := h.Sum(nil)
+		//return fmt.Sprintf("%x", dst) == header
+		return header == want
+	}
+	return true
+}
+
+func (h *handler) getHash(body []byte) string {
+	want := sha256.Sum256(body)
+	wantDecoded := fmt.Sprintf("%x", want)
+	return wantDecoded
 }

@@ -8,7 +8,7 @@ import (
 )
 
 func New(params config.Options) *chi.Mux {
-	handler := handlers.New(params.DatabaseAddress)
+	handler := handlers.New(params.DatabaseAddress, params.Key)
 
 	r := chi.NewRouter()
 	r.Use(middleware.RequestLogger)

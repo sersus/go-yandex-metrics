@@ -25,6 +25,26 @@ type Options struct {
 	StoreInterval   int
 	FileStoragePath string
 	Restore         bool
+	Key             string
+	RateLimit       int
+}
+
+func WithRateLimit() Option {
+	return func(p *Options) {
+		flag.IntVar(&p.RateLimit, "l", 1, "max requests to send on server")
+		if envKey := os.Getenv("RATE_LIMIT"); envKey != "" {
+			p.Key = envKey
+		}
+	}
+}
+
+func WithKey() Option {
+	return func(p *Options) {
+		flag.StringVar(&p.Key, "k", "", "key for using hash subscription")
+		if envKey := os.Getenv("KEY"); envKey != "" {
+			p.Key = envKey
+		}
+	}
 }
 
 func WithDatabase() Option {
